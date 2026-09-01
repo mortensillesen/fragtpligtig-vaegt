@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fragtpligtig Vægt — Undervisningsforløb</title>
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+        --navy: #1a3a5c;
+        --navy-light: #2a5482;
+        --accent: #2e7dd1;
+        --bg: #f0f4f8;
+        --card-border: #dde3ea;
+        --text: #222;
+        --muted: #5a6b7d;
+        --green: #1e7e46;
+        --green-bg: #e6f4ec;
+        --red: #b3362b;
+        --red-bg: #fbeae8;
+        --gold: #f0b429;
+    }
+
+    body {
+        font-family: 'Segoe UI', Arial, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        padding: 24px 16px 60px;
+        line-height: 1.55;
+    }
+
+    .container { max-width: 900px; margin: 0 auto; }
+
+    /* Header */
+    header {
+        background: linear-gradient(135deg, var(--navy) 0%, var(--navy-light) 100%);
+        color: white;
+        padding: 32px 28px;
+        border-radius: 12px 12px 0 0;
+    }
+    header .eyebrow {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        opacity: 0.7;
+        margin-bottom: 8px;
+    }
+    header h1 { font-size: 1.7rem; font-weight: 650; letter-spacing: 0.3px; }
+    header .sub { font-size: 0.95rem; opacity: 0.85; margin-top: 6px; }
+
+    /* Cards */
+    .card {
+        background: white;
+        padding: 28px;
+        border: 1px solid var(--card-border);
+        border-top: none;
+    }
+    .card:last-of-type { border-radius: 0 0 12px 12px; }
+
+    .card h2 {
+        font-size: 1.15rem;
+        color: var(--navy);
+        margin-bottom: 14px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #e8edf2;
+    }
+    .card h3 {
+        font-size: 1rem;
+        color: var(--navy);
+        margin: 18px 0 8px;
+    }
+    .card p { margin-bottom: 10px; }
+    .card p:last-child { margin-bottom: 0; }
+    .card ul { margin: 0 0 10px 22px; }
+    .card li { margin-bottom: 6px; }
+
+    /* Definition callout */
+    .definition {
+        background: #eef4fb;
+        border-left: 4px solid var(--accent);
+        padding: 16px 18px;
+        border-radius: 0 8px 8px 0;
+        margin: 14px 0;
+        font-size: 1.02rem;
+    }
+    .definition strong { color: var(--navy); }
+
+    .note {
+        background: #fdf6e3;
+        border-left: 4px solid var(--gold);
+        padding: 12px 16px;
+        border-radius: 0 8px 8px 0;
+        margin: 14px 0;
+        font-size: 0.93rem;
+        color: #6b5a1e;
+    }
+
+    /* 4-trins step-liste */
+    .steps { list-style: none; margin: 16px 0 4px; counter-reset: step; }
+    .steps li {
+        counter-increment: step;
+        display: flex;
+        align-items: flex-start;
+        gap: 14px;
+        padding: 12px 0;
+        border-bottom: 1px dashed var(--card-border);
+    }
+    .steps li:last-child { border-bottom: none; }
+    .steps li::before {
+        content: counter(step);
+        flex: 0 0 34px;
+        height: 34px;
+        border-radius: 50%;
+        background: var(--navy);
+        color: white;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+    }
+    .steps .step-title { font-weight: 650; color: var(--navy); }
+    .steps .step-body { font-size: 0.95rem; color: var(--muted); }
+
+    /* Tabel */
+    .table-wrap { overflow-x: auto; margin: 14px 0 4px; }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.95rem;
+        min-width: 480px;
+    }
+    th, td {
+        text-align: left;
+        padding: 10px 14px;
+        border-bottom: 1px solid var(--card-border);
+    }
+    th {
+        background: var(--navy);
+        color: white;
+        font-weight: 600;
+        font-size: 0.85rem;
+        letter-spacing: 0.5px;
+    }
+    tr:nth-child(even) td { background: #f7fafc; }
+    td.factor { font-weight: 650; color: var(--navy); white-space: nowrap; }
+
+    /* Eksempel-kort */
+    .example {
+        border: 1px solid var(--card-border);
+        border-radius: 10px;
+        margin: 16px 0;
+        overflow: hidden;
+    }
+    .example-head {
+        background: #eef4fb;
+        padding: 12px 18px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+    .example-head .badge {
+        background: var(--navy);
+        color: white;
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        padding: 4px 10px;
+        border-radius: 20px;
+        white-space: nowrap;
+    }
+    .example-head .title { font-weight: 650; color: var(--navy); }
+    .example-body { padding: 16px 18px; }
+    .example-body .given {
+        font-size: 0.93rem;
+        color: var(--muted);
+        margin-bottom: 12px;
+    }
+    .calc { list-style: none; margin: 0; }
+    .calc li {
+        padding: 7px 0;
+        border-bottom: 1px dashed #e8edf2;
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        font-size: 0.95rem;
+    }
+    .calc li:last-child { border-bottom: none; }
+    .calc .lbl {
+        flex: 0 0 150px;
+        font-weight: 600;
+        color: var(--muted);
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        padding-top: 2px;
+    }
+    .calc .result { font-weight: 700; color: var(--navy); }
+    .calc li.final {
+        background: var(--green-bg);
+        margin: 6px -18px -16px;
+        padding: 12px 18px;
+        border-top: 1px solid #cfe8da;
+    }
+    .calc li.final .result { color: var(--green); font-size: 1.05rem; }
+
+    /* Quiz */
+    .quiz-q {
+        border: 1px solid var(--card-border);
+        border-radius: 10px;
+        padding: 18px;
+        margin: 16px 0;
+    }
+    .quiz-q .q-num {
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        color: var(--accent);
+        margin-bottom: 6px;
+    }
+    .quiz-q .q-text { font-weight: 650; margin-bottom: 12px; }
+    .quiz-opts { display: grid; gap: 8px; }
+    .quiz-opt {
+        text-align: left;
+        font: inherit;
+        font-size: 0.95rem;
+        padding: 10px 14px;
+        border: 1.5px solid var(--card-border);
+        border-radius: 8px;
+        background: #fafcfe;
+        cursor: pointer;
+        transition: border-color 0.15s, background 0.15s;
+    }
+    .quiz-opt:hover:not(:disabled) { border-color: var(--accent); background: #eef4fb; }
+    .quiz-opt:disabled { cursor: default; }
+    .quiz-opt.correct {
+        border-color: var(--green);
+        background: var(--green-bg);
+        font-weight: 650;
+    }
+    .quiz-opt.wrong {
+        border-color: var(--red);
+        background: var(--red-bg);
+    }
+    .quiz-opt.dimmed { opacity: 0.55; }
+    .quiz-feedback {
+        display: none;
+        margin-top: 12px;
+        padding: 12px 14px;
+        border-radius: 8px;
+        font-size: 0.92rem;
+    }
+    .quiz-feedback.show { display: block; }
+    .quiz-feedback.ok { background: var(--green-bg); border-left: 4px solid var(--green); }
+    .quiz-feedback.nej { background: var(--red-bg); border-left: 4px solid var(--red); }
+    .quiz-feedback .verdict { font-weight: 700; margin-bottom: 4px; }
+    .quiz-feedback.ok .verdict { color: var(--green); }
+    .quiz-feedback.nej .verdict { color: var(--red); }
+    .quiz-feedback .expl { color: #3d4c5c; }
+
+    #quiz-score {
+        display: none;
+        margin-top: 20px;
+        padding: 20px;
+        border-radius: 10px;
+        background: var(--navy);
+        color: white;
+        text-align: center;
+    }
+    #quiz-score.show { display: block; }
+    #quiz-score .score-num { font-size: 2rem; font-weight: 700; }
+    #quiz-score p { margin-top: 6px; opacity: 0.9; font-size: 0.95rem; }
+    #quiz-retry {
+        margin-top: 14px;
+        font: inherit;
+        font-weight: 600;
+        padding: 9px 22px;
+        border: none;
+        border-radius: 8px;
+        background: white;
+        color: var(--navy);
+        cursor: pointer;
+    }
+    #quiz-retry:hover { background: #e8edf2; }
+
+    footer {
+        text-align: center;
+        font-size: 0.82rem;
+        color: var(--muted);
+        margin-top: 24px;
+    }
+
+    @media (max-width: 560px) {
+        header { padding: 24px 20px; }
+        header h1 { font-size: 1.35rem; }
+        .card { padding: 20px 18px; }
+        .calc .lbl { flex-basis: 100%; padding-top: 0; }
+    }
+</style>
+</head>
+<body>
+<div class="container">
+
+    <header>
+        <div class="eyebrow">Spedition &amp; Shipping · Undervisningsforløb</div>
+        <h1>Fragtpligtig Vægt</h1>
+        <div class="sub">Chargeable weight — sådan prissætter speditøren gods på tværs af transportformer</div>
+    </header>
+
+    <section class="card">
+        <h2>Formål</h2>
+        <p>Efter forløbet kan du:</p>
+        <ul>
+            <li>Forklare hvad fragtpligtig vægt er, og hvorfor speditører skal kende princippet</li>
+            <li>Bruge 4-trins-modellen til at beregne kundepriser uanset transportform</li>
+        </ul>
+    </section>
+
+    <section class="card">
+        <h2>Din rolle som speditør</h2>
+        <p>Som speditør fungerer du som mellemled mellem afsender og modtager. Du arrangerer transport og prissætter for kunden. Fragtpligtig vægt er afgørende for korrekt prisberegning.</p>
+    </section>
+
+    <section class="card">
+        <h2>Hvad er fragtpligtig vægt?</h2>
+        <div class="definition">
+            <strong>Fragtpligtig vægt</strong> — på engelsk <em>chargeable weight</em> — er den vægt kunden afregnes for. Den svarer ikke nødvendigvis til godsets faktiske vægt.
+        </div>
+        <p>Små tunge kolli bruger mindre plads end store lette kolli. Transportører har begrænset kapacitet i både plads og bæreevne. Fragtpligtig vægt sikrer, at prisen afspejler den ressource der reelt bruges.</p>
+    </section>
+
+    <section class="card">
+        <h2>Hvornår bruges fragtpligtig vægt?</h2>
+        <p>Princippet bruges primært ved:</p>
+        <ul>
+            <li><strong>Luftfragt</strong> — altid per kilo baseret på fragtpligtig vægt</li>
+            <li><strong>Vejgods som stykgods</strong> — per lademeter, kubikmeter eller palle</li>
+        </ul>
+        <div class="note">Ved fuld kapacitet (fuld lastbil, fuldt fly) aftales en samlet pris uden beregning af fragtpligtig vægt.</div>
+    </section>
+
+    <section class="card">
+        <h2>De 4 trin — fremgangsmåden</h2>
+        <ol class="steps">
+            <li>
+                <div>
+                    <div class="step-title">Bestem volumen</div>
+                    <div class="step-body">I den relevante enhed: CBM, LDM eller PLL</div>
+                </div>
+            </li>
+            <li>
+                <div>
+                    <div class="step-title">Bestem faktisk vægt — omregnet til samme enhed</div>
+                    <div class="step-body">Vægt ÷ omregningsfaktor</div>
+                </div>
+            </li>
+            <li>
+                <div>
+                    <div class="step-title">Vælg den højeste af de to</div>
+                    <div class="step-body">Det er den fragtpligtige vægt</div>
+                </div>
+            </li>
+            <li>
+                <div>
+                    <div class="step-title">Beregn prisen</div>
+                    <div class="step-body">Ud fra pristilbuddet</div>
+                </div>
+            </li>
+        </ol>
+    </section>
+
+    <section class="card">
+        <h2>Omregningsfaktorer (branche-standard)</h2>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr><th>Transportform</th><th>Afregning</th><th>Omregningsfaktor</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>Luftfragt</td><td>Per kilo</td><td class="factor">1 CBM = 166,67 kg</td></tr>
+                    <tr><td>Vejgods</td><td>Per lademeter</td><td class="factor">1 LDM = 1.850 kg</td></tr>
+                    <tr><td>Vejgods</td><td>Per kubikmeter</td><td class="factor">1 CBM = 333 kg</td></tr>
+                    <tr><td>Vejgods</td><td>Per EUR-palle</td><td class="factor">1 PLL = 740 kg</td></tr>
+                    <tr><td>Søfragt (LCL)</td><td>Per kubikmeter</td><td class="factor">1 CBM = 1.000 kg</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="card">
+        <h2>Praktiske eksempler</h2>
+
+        <div class="example">
+            <div class="example-head">
+                <span class="badge">Luftfragt</span>
+                <span class="title">Afregning i kilo</span>
+            </div>
+            <div class="example-body">
+                <p class="given">Kasse: 0,8 × 0,8 × 0,9 m · Faktisk vægt: 110 kg · Pristilbud: 3,00 USD/kg (for +100 kg-intervallet)</p>
+                <ol class="calc">
+                    <li><span class="lbl">1. Volumen</span><span>0,8 × 0,8 × 0,9 × 166,67 = <span class="result">96 kg</span></span></li>
+                    <li><span class="lbl">2. Faktisk vægt</span><span class="result">110 kg</span></li>
+                    <li><span class="lbl">3. Fragtpligtig</span><span><span class="result">110 kg</span> (højeste)</span></li>
+                    <li class="final"><span class="lbl">4. Pris</span><span>110 × 3,00 = <span class="result">330 USD</span></span></li>
+                </ol>
+            </div>
+        </div>
+
+        <div class="example">
+            <div class="example-head">
+                <span class="badge">Vejgods</span>
+                <span class="title">Afregning i lademeter</span>
+            </div>
+            <div class="example-body">
+                <p class="given">Fyldte rum: 3,2 LDM · Samlet vægt: 5.000 kg · Pris: 1.600 DKK/LDM</p>
+                <ol class="calc">
+                    <li><span class="lbl">1. Volumen</span><span class="result">3,2 LDM</span></li>
+                    <li><span class="lbl">2. Faktisk vægt</span><span>5.000 ÷ 1.850 = <span class="result">2,7 LDM</span></span></li>
+                    <li><span class="lbl">3. Fragtpligtig</span><span><span class="result">3,2 LDM</span> (højeste)</span></li>
+                    <li class="final"><span class="lbl">4. Pris</span><span>3,2 × 1.600 = <span class="result">5.120 DKK</span></span></li>
+                </ol>
+            </div>
+        </div>
+
+        <div class="example">
+            <div class="example-head">
+                <span class="badge">Vejgods</span>
+                <span class="title">Afregning i kubikmeter</span>
+            </div>
+            <div class="example-body">
+                <p class="given">Volumen: 16 CBM · Samlet vægt: 6.400 kg · Pris: 264 DKK/CBM</p>
+                <ol class="calc">
+                    <li><span class="lbl">1. Volumen</span><span class="result">16 CBM</span></li>
+                    <li><span class="lbl">2. Faktisk vægt</span><span>6.400 ÷ 333 = <span class="result">19,2 CBM</span></span></li>
+                    <li><span class="lbl">3. Fragtpligtig</span><span><span class="result">19,2 CBM</span> (højeste)</span></li>
+                    <li class="final"><span class="lbl">4. Pris</span><span>19,2 × 264 = <span class="result">5.069 DKK</span></span></li>
+                </ol>
+            </div>
+        </div>
+
+        <div class="example">
+            <div class="example-head">
+                <span class="badge">Vejgods</span>
+                <span class="title">Afregning per EUR-palle</span>
+            </div>
+            <div class="example-body">
+                <p class="given">10 EUR-paller · Samlet vægt: 5.900 kg · Pris: 575 DKK/PLL</p>
+                <ol class="calc">
+                    <li><span class="lbl">1. Volumen</span><span class="result">10 PLL</span></li>
+                    <li><span class="lbl">2. Faktisk vægt</span><span>5.900 ÷ 740 = <span class="result">7,97 PLL</span></span></li>
+                    <li><span class="lbl">3. Fragtpligtig</span><span><span class="result">10 PLL</span> (højeste)</span></li>
+                    <li class="final"><span class="lbl">4. Pris</span><span>10 × 575 = <span class="result">5.750 DKK</span></span></li>
+                </ol>
+            </div>
+        </div>
+
+        <div class="example">
+            <div class="example-head">
+                <span class="badge">Søfragt (LCL)</span>
+                <span class="title">Afregning i kubikmeter</span>
+            </div>
+            <div class="example-body">
+                <p class="given">Volumen: 2,5 CBM · Samlet vægt: 3.200 kg · Pris: 175 USD/CBM (W/M)</p>
+                <ol class="calc">
+                    <li><span class="lbl">1. Volumen</span><span class="result">2,5 CBM</span></li>
+                    <li><span class="lbl">2. Faktisk vægt</span><span>3.200 ÷ 1.000 = <span class="result">3,2 CBM</span></span></li>
+                    <li><span class="lbl">3. Fragtpligtig</span><span><span class="result">3,2 CBM</span> (højeste)</span></li>
+                    <li class="final"><span class="lbl">4. Pris</span><span>3,2 × 175 = <span class="result">560 USD</span></span></li>
+                </ol>
+                <div class="note" style="margin-bottom:0; margin-top:14px;"><strong>W/M</strong> — Weight or Measurement — er en generisk betegnelse der bruges på tværs af transportformer.</div>
+            </div>
+        </div>
+    </section>
+
+    <section class="card">
+        <h2>Quiz — test dig selv</h2>
+        <p>Vælg ét svar per spørgsmål. Du får straks at vide, om det er rigtigt.</p>
+        <div id="quiz"></div>
+        <div id="quiz-score">
+            <div class="score-num"><span id="score-val">0</span> / <span id="score-max">7</span></div>
+            <p id="score-msg"></p>
+            <button id="quiz-retry" type="button">Prøv igen</button>
+        </div>
+    </section>
+
+    <section class="card">
+        <h2>Afslutning</h2>
+        <p>Du er nu klar til undervisning. Du kender princippet og fremgangsmåden for de mest anvendte transportformer. Test dig selv i quizzen før klasseundervisningen.</p>
+    </section>
+
+    <footer>Fragtpligtig vægt · Spedition &amp; Shipping</footer>
+</div>
+
+<script>
+    const QUESTIONS = [
+        {
+            q: "En kunde sender én kasse med luftfragt. Volumen omregnet til kg er 85 kg. Faktisk vægt er 110 kg. Hvad er den fragtpligtige vægt?",
+            opts: ["85 kg", "110 kg", "195 kg", "97,5 kg"],
+            correct: 1,
+            expl: "Fragtpligtig vægt er altid den højeste af volumenvægt (85 kg) og faktisk vægt (110 kg) — altså 110 kg."
+        },
+        {
+            q: "Hvad er formålet med fragtpligtig vægt?",
+            opts: [
+                "At beskytte kunden mod for høje fragtpriser",
+                "At sikre at transportøren afregner for den ressource der reelt bruges",
+                "At gøre det nemmere at beregne told",
+                "At standardisere fragtpriser i hele EU"
+            ],
+            correct: 1,
+            expl: "Små tunge kolli bruger plads i bæreevnen, store lette kolli bruger plads i rummet. Fragtpligtig vægt sikrer, at prisen afspejler den ressource der reelt bruges."
+        },
+        {
+            q: "Hvad er omregningsfaktoren for luftfragt?",
+            opts: ["1 CBM = 333 kg", "1 CBM = 1.000 kg", "1 LDM = 1.850 kg", "1 CBM = 166,67 kg"],
+            correct: 3,
+            expl: "Ved luftfragt er branche-standarden 1 CBM = 166,67 kg."
+        },
+        {
+            q: "Du har givet en kunde et tilbud på 1.600 DKK/LDM. Kunden sender gods der fylder 2,5 LDM med vægt 5.550 kg. Hvad fakturerer du?",
+            opts: ["4.000 DKK", "4.800 DKK", "5.120 DKK", "6.400 DKK"],
+            correct: 1,
+            expl: "Volumen: 2,5 LDM. Faktisk vægt: 5.550 ÷ 1.850 = 3,0 LDM. Fragtpligtig vægt: 3,0 LDM (højeste). Pris: 3,0 × 1.600 = 4.800 DKK."
+        },
+        {
+            q: "Kasse 1,0 × 0,6 × 0,5 m vejer 40 kg. Luftfragttilbud: 4,50 USD/kg (over 45 kg). Hvad betaler kunden?",
+            opts: ["180 USD", "200 USD", "225 USD", "270 USD"],
+            correct: 2,
+            expl: "Volumen: 1,0 × 0,6 × 0,5 = 0,3 CBM. Volumenvægt: 0,3 × 166,67 = 50 kg. Fragtpligtig vægt: 50 kg (højeste). Pris: 50 × 4,50 = 225 USD."
+        },
+        {
+            q: "Du har givet lademeter-tilbud. Godset vejer mere end volumen tilsiger. Hvad gør du?",
+            opts: [
+                "Afregner kunden for fyldt rum",
+                "Afregner kunden for faktisk vægt omregnet til LDM",
+                "Bruger altid volumenet",
+                "Kontakter kunden og genforhandler"
+            ],
+            correct: 1,
+            expl: "Når den faktiske vægt omregnet til LDM er højere end volumenet, er det den der er fragtpligtig — kunden afregnes for faktisk vægt omregnet til LDM."
+        },
+        {
+            q: "Hvad betyder W/M?",
+            opts: [
+                "Weight Management",
+                "Warehouse & Maritime",
+                "Weight or Measurement — afregning efter højeste værdi",
+                "Width × Measurement"
+            ],
+            correct: 2,
+            expl: "W/M står for Weight or Measurement: der afregnes efter den højeste af vægt og volumen."
+        }
+    ];
+
+    const LETTERS = ["a", "b", "c", "d"];
+    const quizEl = document.getElementById("quiz");
+    let answered = 0;
+    let score = 0;
+
+    function buildQuiz() {
+        answered = 0;
+        score = 0;
+        quizEl.innerHTML = "";
+        document.getElementById("quiz-score").classList.remove("show");
+
+        QUESTIONS.forEach((item, qi) => {
+            const box = document.createElement("div");
+            box.className = "quiz-q";
+
+            const num = document.createElement("div");
+            num.className = "q-num";
+            num.textContent = "Spørgsmål " + (qi + 1) + " af " + QUESTIONS.length;
+            box.appendChild(num);
+
+            const qt = document.createElement("div");
+            qt.className = "q-text";
+            qt.textContent = item.q;
+            box.appendChild(qt);
+
+            const opts = document.createElement("div");
+            opts.className = "quiz-opts";
+
+            const feedback = document.createElement("div");
+            feedback.className = "quiz-feedback";
+
+            item.opts.forEach((opt, oi) => {
+                const btn = document.createElement("button");
+                btn.type = "button";
+                btn.className = "quiz-opt";
+                btn.textContent = LETTERS[oi] + ") " + opt;
+                btn.addEventListener("click", () => {
+                    const buttons = opts.querySelectorAll("button");
+                    buttons.forEach(b => { b.disabled = true; b.classList.add("dimmed"); });
+                    buttons[item.correct].classList.add("correct");
+                    buttons[item.correct].classList.remove("dimmed");
+
+                    const ok = oi === item.correct;
+                    if (ok) {
+                        score++;
+                    } else {
+                        btn.classList.add("wrong");
+                        btn.classList.remove("dimmed");
+                    }
+
+                    feedback.classList.add("show", ok ? "ok" : "nej");
+                    feedback.innerHTML =
+                        '<div class="verdict">' + (ok ? "Rigtigt!" : "Ikke helt — det rigtige svar er " + LETTERS[item.correct] + ")") + "</div>" +
+                        '<div class="expl"></div>';
+                    feedback.querySelector(".expl").textContent = item.expl;
+
+                    answered++;
+                    if (answered === QUESTIONS.length) showScore();
+                });
+                opts.appendChild(btn);
+            });
+
+            box.appendChild(opts);
+            box.appendChild(feedback);
+            quizEl.appendChild(box);
+        });
+    }
+
+    function showScore() {
+        const scoreBox = document.getElementById("quiz-score");
+        document.getElementById("score-val").textContent = score;
+        document.getElementById("score-max").textContent = QUESTIONS.length;
+        const msg = document.getElementById("score-msg");
+        if (score === QUESTIONS.length) {
+            msg.textContent = "Perfekt! Du har helt styr på fragtpligtig vægt.";
+        } else if (score >= 5) {
+            msg.textContent = "Flot — du er godt med. Kig eventuelt eksemplerne igennem igen.";
+        } else {
+            msg.textContent = "Gå de 4 trin og eksemplerne igennem igen, og prøv så en gang til.";
+        }
+        scoreBox.classList.add("show");
+        scoreBox.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+
+    document.getElementById("quiz-retry").addEventListener("click", () => {
+        buildQuiz();
+        quizEl.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+
+    buildQuiz();
+</script>
+</body>
+</html>
