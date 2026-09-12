@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jakob tip en 13'er</title>
+<style>
+  :root {
+    --bg: #f4f6fa;
+    --card: #ffffff;
+    --text: #1c2333;
+    --muted: #5d6675;
+    --line: #d9dee7;
+    --accent: #1f4e9c;
+    --accent-soft: #e4ecf9;
+    --ok: #1c8a4a;
+    --bad: #c0392b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 16px;
+    font-family: Arial, Helvetica, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.4;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; }
+  h1 {
+    text-align: center;
+    color: var(--accent);
+    font-size: 1.7rem;
+    letter-spacing: 0.04em;
+    margin: 8px 0 16px;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 14px;
+  }
+  label { font-weight: bold; display: block; margin-bottom: 6px; }
+  input[type=text] {
+    width: 100%;
+    font-size: 1rem;
+    padding: 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+  }
+  .q {
+    display: grid;
+    grid-template-columns: 2.2rem 1fr;
+    gap: 8px 10px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .q:last-child { border-bottom: 0; }
+  .q .nr { font-weight: bold; color: var(--accent); }
+  .q .tekst { margin: 0; }
+  .valg {
+    grid-column: 2;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  .valg button {
+    font-size: 1rem;
+    padding: 10px 6px;
+    border: 2px solid var(--line);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--text);
+    cursor: pointer;
+    text-align: center;
+  }
+  .valg button .kode { font-weight: bold; display: block; }
+  .valg button .txt { font-size: 0.85rem; color: var(--muted); display: block; }
+  .valg button.valgt {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
+  .valg button.rigtig { border-color: var(--ok); background: #e3f5ea; }
+  .valg button.forkert { border-color: var(--bad); background: #fbe6e3; }
+  .valg button:disabled { cursor: default; }
+  .knapper { display: flex; flex-wrap: wrap; gap: 10px; }
+  .btn {
+    font-size: 1rem;
+    padding: 12px 18px;
+    border: 0;
+    border-radius: 8px;
+    background: var(--accent);
+    color: #fff;
+    cursor: pointer;
+  }
+  .btn.sekundaer { background: #fff; color: var(--accent); border: 2px solid var(--accent); }
+  .btn:disabled { opacity: 0.5; cursor: default; }
+  .status { color: var(--muted); font-size: 0.95rem; margin-top: 8px; }
+  .score { font-size: 1.3rem; font-weight: bold; margin: 6px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+  th, td { text-align: left; padding: 6px 4px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: normal; }
+  .lille { font-size: 0.85rem; color: var(--muted); }
+  .slet { background: none; border: 0; color: var(--bad); cursor: pointer; font-size: 0.9rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>JAKOB TIP EN 13'ER</h1>
+
+  <div class="card">
+    <label for="navn">Dit navn</label>
+    <input type="text" id="navn" placeholder="Skriv dit navn" autocomplete="off">
+    <div class="status">Dine svar gemmes automatisk i denne browser, mens du udfylder.</div>
+  </div>
+
+  <div class="card" id="spoergsmaal"></div>
+
+  <div class="card">
+    <div class="knapper">
+      <button class="btn" id="aflever">Aflever</button>
+      <button class="btn sekundaer" id="nulstil">Start forfra</button>
+    </div>
+    <div id="resultat"></div>
+  </div>
+
+  <div class="card">
+    <label>Gemte resultater i denne browser</label>
+    <div id="gemte"></div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// OPSÆTNING
+// Skriv svarmulighederne i "valg" (rækkefølgen er 1, X, 2).
+// Tomme tekster viser kun 1 / X / 2.
+// FACIT: skriv 13 tegn med 1, X eller 2, fx "1X2X12X1221X1".
+// Lad FACIT være null, hvis der ikke skal vises point.
+// ============================================================
+const FACIT = null;
+
+const SPOERGSMAAL = [
+  { tekst: "Da Jakob var lille, startede han til ridning fordi Emilie gik til ridning. Efter noen ganger måtte Jakob stoppe, hvorfor?", valg: ["", "", ""] },
+  { tekst: "Hvilket erhverv overvejede Jakob udover Advokat?", valg: ["", "", ""] },
+  { tekst: "Jakob har løbet Vasaloppet flere gange, men hvad er hans rekord?", valg: ["", "", ""] },
+  { tekst: "Hvad har Jakob glædet sig allermest til ved at være færdig med Ironman?", valg: ["", "", ""] },
+  { tekst: "Hvor mange juridiske udtryk, kan Jakob nå at nævne på 10 sekunder?", valg: ["", "", ""] },
+  { tekst: "Hvilket adjektiv benyttede Jakob til at beskrive sig selv til en jobsamtale for at lyde ekstra klog?", valg: ["", "", ""] },
+  { tekst: "Hvilket land har flest advokater per innbygger?", valg: ["", "", ""] },
+  { tekst: "En tidlig morgen i påsken 2025 pakket Jakob og Mikkel øl i en køleboks, for å reise med tog til en fotballkamp. Det endte med mange enheter og en lang tur hjem. Hvilket fotballag var det FC København spilte mot denne dagen?", valg: ["", "", ""] },
+  { tekst: "Jakob klædte sig i 2. klasse ud som en kvinde til fastelavn. Hvilket navn fik denne kvinde?", valg: ["", "", ""] },
+  { tekst: "Hvor mange dage gik Jakob uden at drikke alkohol, inden Ironman?", valg: ["", "", ""] },
+  { tekst: "Jakob fik på et tidspunkt en intim undersøgelse hos lægen. Under denne undersøgelse bliver én/flere medicinstuderende inviteret med til undersøgelse uden Jakobs samtykke. Men hvor mange?", valg: ["", "", ""] },
+  { tekst: "Hvor mange pushups kan Jakob ta på 20 sek?", valg: ["", "", ""] },
+  { tekst: "I 8. klasse fik Jakob tilsendt en sang af en sød pige, der gik i 9. klasse. Hvad hedder denne sang?", valg: ["", "", ""] },
+];
+
+// ============================================================
+// Selve spillet
+// ============================================================
+const KODER = ["1", "X", "2"];
+const NOEGLE_KLADDE = "jakob13_kladde";
+const NOEGLE_RESULTATER = "jakob13_resultater";
+
+let state = { navn: "", svar: Array(SPOERGSMAAL.length).fill(null), afleveret: false };
+
+function laes(noegle, fallback) {
+  try {
+    const v = localStorage.getItem(noegle);
+    return v ? JSON.parse(v) : fallback;
+  } catch (e) { return fallback; }
+}
+function gem(noegle, vaerdi) {
+  try { localStorage.setItem(noegle, JSON.stringify(vaerdi)); } catch (e) {}
+}
+
+function facitListe() {
+  if (!FACIT || FACIT.length !== SPOERGSMAAL.length) return null;
+  const f = FACIT.toUpperCase().split("");
+  return f.every(k => KODER.includes(k)) ? f : null;
+}
+
+function beregnPoint(svar) {
+  const facit = facitListe();
+  if (!facit) return null;
+  return svar.reduce((sum, s, i) => sum + (s === facit[i] ? 1 : 0), 0);
+}
+
+function tegnSpoergsmaal() {
+  const facit = state.afleveret ? facitListe() : null;
+  const el = document.getElementById("spoergsmaal");
+  el.innerHTML = "";
+  SPOERGSMAAL.forEach((q, i) => {
+    const row = document.createElement("div");
+    row.className = "q";
+    row.innerHTML = `<div class="nr">${i + 1}.</div><p class="tekst">${q.tekst}</p>`;
+    const valg = document.createElement("div");
+    valg.className = "valg";
+    KODER.forEach((kode, k) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.innerHTML = `<span class="kode">${kode}</span>` + (q.valg[k] ? `<span class="txt">${q.valg[k]}</span>` : "");
+      if (state.svar[i] === kode) b.classList.add("valgt");
+      if (facit) {
+        if (facit[i] === kode) b.classList.add("rigtig");
+        else if (state.svar[i] === kode) b.classList.add("forkert");
+      }
+      b.disabled = state.afleveret;
+      b.addEventListener("click", () => {
+        state.svar[i] = kode;
+        gemKladde();
+        tegnSpoergsmaal();
+        opdaterStatus();
+      });
+      valg.appendChild(b);
+    });
+    row.appendChild(valg);
+    el.appendChild(row);
+  });
+}
+
+function gemKladde() {
+  gem(NOEGLE_KLADDE, state);
+}
+
+function opdaterStatus() {
+  const besvaret = state.svar.filter(s => s !== null).length;
+  const res = document.getElementById("resultat");
+  const aflever = document.getElementById("aflever");
+  if (state.afleveret) {
+    aflever.disabled = true;
+    const point = beregnPoint(state.svar);
+    res.innerHTML = point === null
+      ? `<div class="score">Tak, ${escapeHtml(state.navn)}! Dine svar er afleveret.</div>
+         <div class="status">Facit er ikke lagt ind endnu, så der vises ikke point. Dine svar: ${state.svar.join(" ")}</div>`
+      : `<div class="score">${escapeHtml(state.navn)}: ${point} af ${SPOERGSMAAL.length} rigtige</div>
+         <div class="status">Grønne felter er de rigtige svar. Røde er dine forkerte.</div>`;
+  } else {
+    aflever.disabled = false;
+    res.innerHTML = `<div class="status">${besvaret} af ${SPOERGSMAAL.length} besvaret</div>`;
+  }
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+function tegnGemte() {
+  const liste = laes(NOEGLE_RESULTATER, []);
+  const el = document.getElementById("gemte");
+  if (!liste.length) {
+    el.innerHTML = `<div class="lille">Ingen afleverede endnu.</div>`;
+    return;
+  }
+  let html = `<table><tr><th>Navn</th><th>Svar</th><th>Point</th><th>Tid</th><th></th></tr>`;
+  liste.forEach((r, i) => {
+    const point = beregnPoint(r.svar);
+    html += `<tr>
+      <td>${escapeHtml(r.navn)}</td>
+      <td class="lille">${r.svar.map(s => s || "-").join(" ")}</td>
+      <td>${point === null ? "–" : point + "/" + SPOERGSMAAL.length}</td>
+      <td class="lille">${new Date(r.tid).toLocaleString("da-DK")}</td>
+      <td><button class="slet" data-i="${i}">Slet</button></td>
+    </tr>`;
+  });
+  html += `</table>`;
+  el.innerHTML = html;
+  el.querySelectorAll(".slet").forEach(b => b.addEventListener("click", () => {
+    if (!confirm("Slet dette resultat?")) return;
+    const l = laes(NOEGLE_RESULTATER, []);
+    l.splice(Number(b.dataset.i), 1);
+    gem(NOEGLE_RESULTATER, l);
+    tegnGemte();
+  }));
+}
+
+document.getElementById("navn").addEventListener("input", e => {
+  state.navn = e.target.value;
+  gemKladde();
+});
+
+document.getElementById("aflever").addEventListener("click", () => {
+  if (!state.navn.trim()) { alert("Skriv dit navn først."); document.getElementById("navn").focus(); return; }
+  const mangler = state.svar.map((s, i) => s === null ? i + 1 : null).filter(Boolean);
+  if (mangler.length && !confirm("Du mangler at svare på nr. " + mangler.join(", ") + ". Aflever alligevel?")) return;
+  state.afleveret = true;
+  state.navn = state.navn.trim();
+  gemKladde();
+  const liste = laes(NOEGLE_RESULTATER, []);
+  liste.push({ navn: state.navn, svar: state.svar.slice(), tid: Date.now() });
+  gem(NOEGLE_RESULTATER, liste);
+  tegnSpoergsmaal();
+  opdaterStatus();
+  tegnGemte();
+});
+
+document.getElementById("nulstil").addEventListener("click", () => {
+  if (!state.afleveret && state.svar.some(s => s !== null) && !confirm("Slet dine nuværende svar og start forfra?")) return;
+  state = { navn: state.navn, svar: Array(SPOERGSMAAL.length).fill(null), afleveret: false };
+  gemKladde();
+  tegnSpoergsmaal();
+  opdaterStatus();
+});
+
+// Start
+(function init() {
+  const kladde = laes(NOEGLE_KLADDE, null);
+  if (kladde && Array.isArray(kladde.svar) && kladde.svar.length === SPOERGSMAAL.length) state = kladde;
+  document.getElementById("navn").value = state.navn || "";
+  tegnSpoergsmaal();
+  opdaterStatus();
+  tegnGemte();
+})();
+</script>
+</body>
+</html>
