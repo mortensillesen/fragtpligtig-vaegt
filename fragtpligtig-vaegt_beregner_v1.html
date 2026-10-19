@@ -344,7 +344,7 @@
         <div class="linjer" id="linjer"></div>
         <div class="btn-row">
             <button class="btn" type="button" id="tilfoej">Tilføj linje</button>
-            <span class="cap">Mål i meter, vægt i kg pr. stk. Pallehøjde er samlet højde inkl. pallen.</span>
+            <span class="cap">Mål i meter, vægt i kg pr. stk. Pallehøjde er samlet højde inkl. pallen. Ens kolli skrives på samme linje med antal, så de pakkes side om side.</span>
         </div>
     </section>
 
@@ -365,7 +365,7 @@
                 </label>
                 <label>
                     <input type="radio" name="ldmMetode" value="palle">
-                    <span><span class="m-title">Optagne pallepladser</span><br><span class="m-desc">Kollit lægges på langs og rundes op til hele pallepladser på 1,2 × 0,8 m i tre baner. Et rør på 6 m blokerer fem pladser bag hinanden, selvom det kun dækker 0,5 LDM i areal.</span></span>
+                    <span><span class="m-title">Optagne pallepladser</span><br><span class="m-desc">Kolliene lægges på langs og side om side, og den samlede bredde rundes op til hele baner på 0,8 m. Et rør på 6 m blokerer fem pallepladser bag hinanden, selvom det kun dækker 0,5 LDM i areal. To rør deler én bane og giver stadig 2,0 LDM.</span></span>
                 </label>
             </div>
             <label class="check" style="margin-top: 12px;">
@@ -511,29 +511,39 @@
         }
         const gulvpladser = Math.ceil(antal / lag);
 
-        // Lademeter pr. gulvplads efter to metoder
+        // Lademeter for hele linjen efter to metoder.
+        // Pallepladser: stykkerne lægges side om side på langs af traileren. Den samlede
+        // bredde rundes op til hele baner på 0,8 m, og en ny række begyndes først når
+        // trailerens bredde er brugt. To rør på 0,2 m deler derfor én bane.
         const ldmPrPlads = s.pladsL * s.pladsB / s.trailerB; // 0,4 ved standardmål
-        let ldmAreal, ldmPalle, fodArealL, fodArealB, fodPalleL, fodPalleB;
+        const maxBaner = Math.max(1, Math.floor(s.trailerB / s.pladsB + 1e-9));
+        let ldmAreal, ldmPalle, raekker = [];
         if (t.ldm != null) {
-            ldmAreal = ldmPalle = t.ldm;
-            fodArealL = fodPalleL = L;
-            fodArealB = fodPalleB = B;
+            ldmAreal = ldmPalle = gulvpladser * t.ldm;
+            const prRaekke = Math.max(1, Math.floor(s.trailerB / B + 1e-9));
+            for (let rest = gulvpladser; rest > 0; rest -= prRaekke) {
+                const n = Math.min(prRaekke, rest);
+                raekker.push({ stk: n, fodL: L, fodB: n * B, reserveret: false });
+            }
         } else {
-            ldmAreal = L * B / s.trailerB;
-            const maxBaner = Math.max(1, Math.floor(s.trailerB / s.pladsB + 1e-9));
-            const baner = Math.min(maxBaner, Math.max(1, Math.ceil(B / s.pladsB - 1e-9)));
+            ldmAreal = gulvpladser * L * B / s.trailerB;
             const langs = Math.max(1, Math.ceil(L / s.pladsL - 1e-9));
+            const prRaekke = Math.max(1, Math.floor(s.trailerB / B + 1e-9));
+            let baner = 0;
+            for (let rest = gulvpladser; rest > 0; rest -= prRaekke) {
+                const n = Math.min(prRaekke, rest);
+                const b = Math.min(maxBaner, Math.max(1, Math.ceil(n * B / s.pladsB - 1e-9)));
+                baner += b;
+                raekker.push({ stk: n, fodL: langs * s.pladsL, fodB: Math.min(s.trailerB, b * s.pladsB), aktL: L, aktB: n * B, reserveret: true });
+            }
             ldmPalle = langs * baner * ldmPrPlads;
-            fodArealL = L; fodArealB = B;
-            fodPalleL = langs * s.pladsL;
-            fodPalleB = Math.min(s.trailerB, baner * s.pladsB);
         }
         let metodeBrugt = s.ldmMetode;
         if (metodeBrugt === 'max') metodeBrugt = ldmPalle > ldmAreal + 1e-9 ? 'palle' : 'areal';
-        const ldmBrugt = metodeBrugt === 'palle' ? ldmPalle : ldmAreal;
-        const fodL = metodeBrugt === 'palle' ? fodPalleL : fodArealL;
-        const fodB = metodeBrugt === 'palle' ? fodPalleB : fodArealB;
-        const ldm = gulvpladser * ldmBrugt;
+        const ldm = metodeBrugt === 'palle' ? ldmPalle : ldmAreal;
+        if (metodeBrugt !== 'palle' || t.ldm != null) {
+            raekker = raekker.map(r => ({ stk: r.stk, fodL: L, fodB: r.stk * B, reserveret: false }));
+        }
 
         // Kubikmeter
         const cbm = l * b * h * antal;
@@ -550,7 +560,7 @@
         return {
             type: linje.type, navn: t.navn, antal, l, b, h, L, B, vaegtStk, vaegt,
             stabelbar, lag, gulvpladser,
-            ldmAreal, ldmPalle, ldmBrugt, metodeBrugt, ldm, fodL, fodB,
+            ldmAreal, ldmPalle, metodeBrugt, ldm, raekker,
             cbm, cbmAfregnet, fuldHoejde, advarsler
         };
     }
@@ -848,7 +858,7 @@
             ? '<p class="cap" style="margin-top:8px;">* Ikke-stabelbart gods afregnet til fuld lastehøjde på ' + fmt(state.s.lasteH, 2) + ' m. Faktisk volumen: ' + fmt(t.cbm, 2) + ' CBM.</p>'
             : '';
         return '<table>' +
-            '<thead><tr><th>Linje</th><th>Antal</th><th>Lag</th><th>Gulvpladser</th><th>LDM pr. plads, areal</th><th>LDM pr. plads, pallepladser</th><th>LDM i alt</th><th>CBM</th><th>Vægt kg</th></tr></thead>' +
+            '<thead><tr><th>Linje</th><th>Antal</th><th>Lag</th><th>Gulvpladser</th><th>LDM areal</th><th>LDM pallepladser</th><th>LDM anvendt</th><th>CBM</th><th>Vægt kg</th></tr></thead>' +
             '<tbody>' + rows + '</tbody>' +
             '<tfoot><tr><td>Sending</td><td>' + t.antal + '</td><td></td><td>' + t.gulvpladser + '</td><td></td><td></td><td>' + fmt(t.ldm, 2) + '</td><td>' + fmt(t.cbmAfregnet, 2) + '</td><td>' + fmt(t.vaegt, 0) + '</td></tr></tfoot>' +
         '</table>' + fodnote +
@@ -927,21 +937,25 @@
     /* ---------- Lastbillede ---------- */
 
     function pakGulv(res, s) {
-        const placeringer = [];
+        const enheder = [];
         let x = 0, hyldeL = 0, brugtB = 0;
         res.linjer.forEach((r, i) => {
-            for (let k = 0; k < r.gulvpladser; k++) {
-                if (hyldeL === 0 || brugtB + r.fodB > s.trailerB + 1e-9) {
+            r.raekker.forEach(rk => {
+                if (hyldeL === 0 || brugtB + rk.fodB > s.trailerB + 1e-9) {
                     x += hyldeL;
-                    hyldeL = r.fodL;
+                    hyldeL = rk.fodL;
                     brugtB = 0;
                 }
-                placeringer.push({ x, y: brugtB, w: r.fodL, h: r.fodB, aktL: r.L, aktB: r.B, linje: i, lag: r.lag });
-                brugtB += r.fodB;
-                hyldeL = Math.max(hyldeL, r.fodL);
-            }
+                const stykker = [];
+                for (let k = 0; k < rk.stk; k++) {
+                    stykker.push({ x: x, y: brugtB + k * r.B, w: r.L, h: r.B });
+                }
+                enheder.push({ x, y: brugtB, w: rk.fodL, h: rk.fodB, reserveret: rk.reserveret, stykker, linje: i, lag: r.lag });
+                brugtB += rk.fodB;
+                hyldeL = Math.max(hyldeL, rk.fodL);
+            });
         });
-        return placeringer;
+        return enheder;
     }
 
     function renderLast(res) {
@@ -964,15 +978,14 @@
         pl.forEach(p => {
             const x = pad + p.x * sc, y = pad + p.y * sc;
             const over = p.x + p.w > s.trailerL + 1e-9;
-            const reserveret = p.w > p.aktL + 1e-9 || p.h > p.aktB + 1e-9;
-            if (reserveret) {
+            if (p.reserveret) {
                 items += '<rect x="' + x + '" y="' + y + '" width="' + (p.w * sc) + '" height="' + (p.h * sc) + '" fill="var(--fill-1)" stroke="var(--ink-3)" stroke-dasharray="4 3"/>';
             }
-            const ax = x + Math.max(0, (p.w - p.aktL) * sc / 2);
-            const ay = y + Math.max(0, (p.h - p.aktB) * sc / 2);
-            items += '<rect x="' + ax + '" y="' + ay + '" width="' + (p.aktL * sc) + '" height="' + (p.aktB * sc) + '" fill="' + (over ? 'var(--accent-wash)' : 'var(--fill-2)') + '" stroke="' + (over ? 'var(--accent)' : 'var(--ink-2)') + '"/>';
+            p.stykker.forEach(st => {
+                items += '<rect x="' + (pad + st.x * sc) + '" y="' + (pad + st.y * sc) + '" width="' + (st.w * sc) + '" height="' + (st.h * sc) + '" fill="' + (over ? 'var(--accent-wash)' : 'var(--fill-2)') + '" stroke="' + (over ? 'var(--accent)' : 'var(--ink-2)') + '"/>';
+            });
             const lbl = (p.linje + 1) + (p.lag > 1 ? ' ×' + p.lag : '');
-            if (p.aktB * sc >= 14 || p.aktL * sc >= 40) {
+            if (p.h * sc >= 14 || p.w * sc >= 40) {
                 items += '<text x="' + (x + p.w * sc / 2) + '" y="' + (y + p.h * sc / 2) + '" font-size="11" font-family="Inter, system-ui, sans-serif" fill="var(--ink)" text-anchor="middle" dominant-baseline="middle">' + lbl + '</text>';
             }
         });
