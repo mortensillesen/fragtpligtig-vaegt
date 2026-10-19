@@ -338,7 +338,7 @@
 
     <section class="card">
         <div class="prose">
-            <p>Indtast godset linje for linje. Beregneren finder volumen i den relevante enhed, omregner vægten med branchens standardfaktorer og vælger den højeste af de to.</p>
+            <p>Indtast godset linje for linje. Beregneren finder volumen i den relevante enhed og omregner vægten med branchens standardfaktorer.</p>
         </div>
         <div class="tabs" role="tablist" aria-label="Transportform">
             <button class="tab" role="tab" type="button" data-mode="vej" aria-selected="true">Vejgods</button>
@@ -366,11 +366,7 @@
         <div id="metode-wrap">
             <div class="metode" role="radiogroup" aria-label="Lademetermetode">
                 <label>
-                    <input type="radio" name="ldmMetode" value="max" checked>
-                    <span><span class="m-title">Højeste af de to metoder</span><br><span class="m-desc">Standard. Linjen afregnes for den plads den reelt blokerer, uanset om det er arealet eller banerne der vejer tungest.</span></span>
-                </label>
-                <label>
-                    <input type="radio" name="ldmMetode" value="areal">
+                    <input type="radio" name="ldmMetode" value="areal" checked>
                     <span><span class="m-title">Areal</span><br><span class="m-desc">Længde × bredde ÷ trailerens bredde (2,4 m). En EUR-palle giver 0,4 LDM, en industripalle 0,5 LDM.</span></span>
                 </label>
                 <label>
@@ -568,8 +564,7 @@
                 raekker.push({ stk: n, fodL: L, fodB: Math.min(s.trailerB, b * s.pladsB), reserveret: true });
             }
         }
-        let metodeBrugt = s.ldmMetode;
-        if (metodeBrugt === 'max') metodeBrugt = ldmPalle > ldmAreal + 1e-9 ? 'palle' : 'areal';
+        const metodeBrugt = s.ldmMetode === 'palle' ? 'palle' : 'areal';
         const ldm = metodeBrugt === 'palle' ? ldmPalle : ldmAreal;
         if (metodeBrugt !== 'palle' || t.ldm != null) {
             raekker = raekker.map(r => ({ stk: r.stk, fodL: L, fodB: r.stk * B, reserveret: false }));
@@ -686,7 +681,7 @@
     const state = {
         mode: 'vej',
         linjer: [],
-        s: Object.assign({ ldmMetode: 'max', fuldHoejde: true, pakning: 'auto', container: 'c40' }, STANDARD),
+        s: Object.assign({ ldmMetode: 'areal', fuldHoejde: true, pakning: 'auto', container: 'c40' }, STANDARD),
         pris: { enhed: 'ldm', tarif: '', valuta: 'DKK', kurs: '' }
     };
 
@@ -933,10 +928,9 @@
     }
 
     function tabelVej(res) {
-        const metode = state.s.ldmMetode;
         const rows = res.linjer.map((r, i) => {
-            const arealKl = r.metodeBrugt === 'areal' ? 'brugt' : (r.ldmAreal === r.ldmPalle ? '' : 'dim');
-            const palleKl = r.metodeBrugt === 'palle' ? 'brugt' : (r.ldmAreal === r.ldmPalle ? '' : 'dim');
+            const arealKl = r.metodeBrugt === 'areal' ? 'brugt' : '';
+            const palleKl = r.metodeBrugt === 'palle' ? 'brugt' : '';
             return '<tr>' +
                 '<td>' + (i + 1) + '. ' + esc(r.navn) + '</td>' +
                 '<td>' + r.antal + '</td>' +
@@ -958,7 +952,7 @@
             '<tbody>' + rows + '</tbody>' +
             '<tfoot><tr><td>Sending</td><td>' + t.antal + '</td><td></td><td>' + t.gulvpladser + '</td><td></td><td></td><td>' + fmt(t.ldm, 2) + '</td><td>' + fmt(t.cbmAfregnet, 2) + '</td><td>' + fmt(t.vaegt, 0) + '</td></tr></tfoot>' +
         '</table>' + fodnote +
-        (metode === 'max' ? '<p class="cap" style="margin-top:4px;">Fed: den metode der er anvendt for linjen. Grå: den lavere af de to.</p>' : '');
+        '';
     }
 
     function tabelVolumen(res) {
