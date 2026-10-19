@@ -285,6 +285,10 @@
     /* Lastbillede */
     .svg-wrap { overflow-x: auto; }
     .svg-wrap svg { display: block; width: 100%; min-width: 560px; height: auto; }
+    .trailer { display: grid; gap: var(--space-1); padding-top: var(--space-2); border-top: 1px solid var(--line); }
+    .trailer:first-child { border-top: none; padding-top: 0; }
+    .trailer .t-head { display: flex; justify-content: space-between; gap: var(--space-2); flex-wrap: wrap; align-items: baseline; }
+    .trailer .t-rest { font-size: 14px; color: var(--ink-2); }
     .bars { display: grid; gap: var(--space-1); }
     .bar { display: grid; grid-template-columns: 1fr auto; gap: var(--space-2); align-items: center; font-size: 14px; }
     .bar .track { height: 8px; background: var(--fill-1); border-radius: var(--radius); overflow: hidden; }
@@ -413,11 +417,19 @@
 
     <section class="card" id="last-card">
         <div class="card-head">
-            <h2>Lastbillede</h2>
-            <span class="cap">Trailerens gulv set fra oven. Stiplet ramme er den plads kollit blokerer.</span>
+            <h2>Lastplan</h2>
+            <span class="cap">Trailerens gulv set fra oven. Stiplet ramme er den længde et kolli blokerer i pallepladser.</span>
         </div>
-        <div class="svg-wrap" id="svgWrap"></div>
-        <div class="bars" id="bars"></div>
+        <div class="btn-row" role="radiogroup" aria-label="Pakning">
+            <span class="cap">Pakning</span>
+            <label class="check"><input type="radio" name="pakning" value="auto" checked><span>Automatisk: største kolli først, rotation, pakket på tværs af linjer</span></label>
+            <label class="check"><input type="radio" name="pakning" value="manuel"><span>Manuel: linjernes rækkefølge</span></label>
+        </div>
+        <div id="lastOversigt"></div>
+        <div id="trailere"></div>
+        <div class="callout neutral">
+            <div>Lastplanen viser pladsbehovet, ikke en færdig lasteinstruks. Den er ikke nødvendigvis den 100 % optimale lastning, og den tager <strong>ikke</strong> højde for vægtfordeling, akseltryk, lastsikring eller losserækkefølge.</div>
+        </div>
     </section>
 
     <section class="card">
@@ -665,7 +677,7 @@
     const state = {
         mode: 'vej',
         linjer: EKSEMPLER.blandet.map(x => Object.assign({}, x)),
-        s: Object.assign({ ldmMetode: 'max', fuldHoejde: true }, STANDARD),
+        s: Object.assign({ ldmMetode: 'max', fuldHoejde: true, pakning: 'auto' }, STANDARD),
         pris: { enhed: 'ldm', tarif: '', valuta: 'DKK', kurs: '' }
     };
 
@@ -827,6 +839,9 @@
     document.querySelectorAll('input[name="ldmMetode"]').forEach(r => {
         r.addEventListener('change', () => { state.s.ldmMetode = r.value; renderResultat(); });
     });
+    document.querySelectorAll('input[name="pakning"]').forEach(r => {
+        r.addEventListener('change', () => { state.s.pakning = r.value; renderResultat(); });
+    });
     document.getElementById('fuldHoejde').addEventListener('change', e => {
         state.s.fuldHoejde = e.target.checked;
         renderResultat();
@@ -881,8 +896,8 @@
     const metodeWrap = document.getElementById('metode-wrap');
     const prisResultatEl = document.getElementById('prisResultat');
     const lastCard = document.getElementById('last-card');
-    const svgWrap = document.getElementById('svgWrap');
-    const barsEl = document.getElementById('bars');
+    const lastOversigtEl = document.getElementById('lastOversigt');
+    const trailereEl = document.getElementById('trailere');
 
     function renderResultat() {
         const mode = state.mode;
@@ -1011,38 +1026,102 @@
         }
     }
 
-    /* ---------- Lastbillede ---------- */
+    /* ---------- Lastplan ---------- */
 
-    function pakGulv(res, s) {
+    // Hver gulvplads bliver én enhed: en stak af et eller flere ens kolli.
+    function lavEnheder(res) {
         const enheder = [];
-        let x = 0, hyldeL = 0, brugtB = 0;
         res.linjer.forEach((r, i) => {
-            r.raekker.forEach(rk => {
-                if (hyldeL === 0 || brugtB + rk.fodB > s.trailerB + 1e-9) {
-                    x += hyldeL;
-                    hyldeL = rk.fodL;
-                    brugtB = 0;
-                }
-                const stykker = [];
-                for (let k = 0; k < rk.stk; k++) {
-                    stykker.push({ x: x, y: brugtB + k * r.B, w: r.L, h: r.B });
-                }
-                enheder.push({ x, y: brugtB, w: rk.fodL, h: rk.fodB, reserveret: rk.reserveret, stykker, linje: i, lag: r.lag });
-                brugtB += rk.fodB;
-                hyldeL = Math.max(hyldeL, rk.fodL);
-            });
+            const reserver = r.type === 'kolli' && r.metodeBrugt === 'palle';
+            for (let k = 0; k < r.gulvpladser; k++) {
+                const stk = Math.max(1, Math.min(r.lag, r.antal - k * r.lag));
+                enheder.push({ linje: i, L: r.L, B: r.B, vaegt: r.vaegtStk * stk, lag: stk, reserver });
+            }
         });
         return enheder;
     }
 
-    function renderLast(res) {
-        const s = state.s;
-        const sc = 56;
-        const pad = 16;
+    // Automatisk pakning: største enhed først, begge orienteringer afprøves, og enheden
+    // lægges i det frie rektangel hvor den passer bedst (best short side fit). Resten af
+    // rektanglet deles i to nye frie rektangler (guillotine). Manuel pakning: linjernes
+    // rækkefølge, ingen rotation, enhederne fyldes i rækker på tværs (next fit).
+    function pak(enheder, s, auto) {
+        const trailere = [];
+        const ikkePlaceret = [];
+        const liste = auto
+            ? enheder.slice().sort((a, b) => (b.L * b.B - a.L * a.B) || (b.L - a.L))
+            : enheder;
+        liste.forEach(u => {
+            const orient = [{ l: u.L, b: u.B }];
+            if (auto && Math.abs(u.L - u.B) > 1e-9) orient.push({ l: u.B, b: u.L });
+            const proev = auto ? proevAuto : proevManuel;
+            let placeret = trailere.some(t => proev(t, u, orient, s));
+            if (!placeret) {
+                const t = { hylder: [], fri: [{ x: 0, y: 0, w: s.trailerL, h: s.trailerB }], vaegt: 0, enheder: [] };
+                if (proev(t, u, orient, s)) trailere.push(t);
+                else ikkePlaceret.push(u);
+            }
+        });
+        trailere.forEach(t => {
+            t.brugtL = t.enheder.reduce((a, e) => Math.max(a, e.x + e.l), 0);
+            t.ledigL = Math.max(0, s.trailerL - t.brugtL);
+            t.ledigPladser = Math.floor(t.ledigL / s.pladsL + 1e-9) * Math.max(1, Math.floor(s.trailerB / s.pladsB + 1e-9));
+            t.ledigKg = Math.max(0, s.maksVaegt - t.vaegt);
+        });
+        return { trailere, ikkePlaceret };
+    }
+
+    function proevAuto(t, u, orient, s) {
+        if (t.vaegt + u.vaegt > s.maksVaegt + 1e-9) return false;
+        let bedst = null;
+        t.fri.forEach((f, fi) => orient.forEach(o => {
+            if (o.l > f.w + 1e-9 || o.b > f.h + 1e-9) return;
+            const score = Math.min(f.w - o.l, f.h - o.b);
+            if (!bedst || score < bedst.score - 1e-9 || (Math.abs(score - bedst.score) < 1e-9 && f.x < bedst.f.x)) bedst = { f, fi, o, score };
+        }));
+        if (!bedst) return false;
+        const f = bedst.f, o = bedst.o;
+        t.enheder.push({ x: f.x, y: f.y, l: o.l, b: o.b, linje: u.linje, lag: u.lag, reserver: u.reserver, vaegt: u.vaegt });
+        t.vaegt += u.vaegt;
+        t.fri.splice(bedst.fi, 1);
+        const restW = f.w - o.l, restH = f.h - o.b;
+        if (restW < restH) {
+            if (restW > 1e-9) t.fri.push({ x: f.x + o.l, y: f.y, w: restW, h: o.b });
+            if (restH > 1e-9) t.fri.push({ x: f.x, y: f.y + o.b, w: f.w, h: restH });
+        } else {
+            if (restW > 1e-9) t.fri.push({ x: f.x + o.l, y: f.y, w: restW, h: f.h });
+            if (restH > 1e-9) t.fri.push({ x: f.x, y: f.y + o.b, w: o.l, h: restH });
+        }
+        return true;
+    }
+
+    function proevManuel(t, u, orient, s) {
+        if (t.vaegt + u.vaegt > s.maksVaegt + 1e-9) return false;
+        const o = orient[0];
+        const h = t.hylder[t.hylder.length - 1];
+        if (h && h.brugtB + o.b <= s.trailerB + 1e-9 && h.x + Math.max(h.dybde, o.l) <= s.trailerL + 1e-9) {
+            h.dybde = Math.max(h.dybde, o.l);
+            placer(t, h, u, o);
+            return true;
+        }
+        const x = t.hylder.reduce((a, hh) => a + hh.dybde, 0);
+        if (o.b > s.trailerB + 1e-9 || x + o.l > s.trailerL + 1e-9) return false;
+        const ny = { x, dybde: o.l, brugtB: 0 };
+        t.hylder.push(ny);
+        placer(t, ny, u, o);
+        return true;
+    }
+
+    function placer(t, h, u, o) {
+        t.enheder.push({ x: h.x, y: h.brugtB, l: o.l, b: o.b, linje: u.linje, lag: u.lag, reserver: u.reserver, vaegt: u.vaegt });
+        h.brugtB += o.b;
+        t.vaegt += u.vaegt;
+    }
+
+    function trailerSvg(t, s) {
+        const sc = 56, pad = 16;
         const W = s.trailerL * sc, H = s.trailerB * sc;
         const vbW = W + pad * 2, vbH = H + pad * 2 + 20;
-        const pl = pakGulv(res, s);
-
         let g = '';
         for (let xm = s.pladsL; xm < s.trailerL - 1e-9; xm += s.pladsL) {
             g += '<line x1="' + (pad + xm * sc) + '" y1="' + pad + '" x2="' + (pad + xm * sc) + '" y2="' + (pad + H) + '" stroke="var(--line)" stroke-dasharray="3 3"/>';
@@ -1050,38 +1129,62 @@
         for (let ym = s.pladsB; ym < s.trailerB - 1e-9; ym += s.pladsB) {
             g += '<line x1="' + pad + '" y1="' + (pad + ym * sc) + '" x2="' + (pad + W) + '" y2="' + (pad + ym * sc) + '" stroke="var(--line)" stroke-dasharray="3 3"/>';
         }
-
         let items = '';
-        pl.forEach(p => {
-            const x = pad + p.x * sc, y = pad + p.y * sc;
-            const over = p.x + p.w > s.trailerL + 1e-9;
-            if (p.reserveret) {
-                items += '<rect x="' + x + '" y="' + y + '" width="' + (p.w * sc) + '" height="' + (p.h * sc) + '" fill="var(--fill-1)" stroke="var(--ink-3)" stroke-dasharray="4 3"/>';
+        t.enheder.forEach(e => {
+            const x = pad + e.x * sc, y = pad + e.y * sc;
+            if (e.reserver) {
+                const resL = Math.min(s.trailerL - e.x, Math.ceil(e.l / s.pladsL - 1e-9) * s.pladsL);
+                if (resL > e.l + 1e-9) {
+                    items += '<rect x="' + x + '" y="' + y + '" width="' + (resL * sc) + '" height="' + (e.b * sc) + '" fill="var(--fill-1)" stroke="var(--ink-3)" stroke-dasharray="4 3"/>';
+                }
             }
-            p.stykker.forEach(st => {
-                items += '<rect x="' + (pad + st.x * sc) + '" y="' + (pad + st.y * sc) + '" width="' + (st.w * sc) + '" height="' + (st.h * sc) + '" fill="' + (over ? 'var(--accent-wash)' : 'var(--fill-2)') + '" stroke="' + (over ? 'var(--accent)' : 'var(--ink-2)') + '"/>';
-            });
-            const lbl = (p.linje + 1) + (p.lag > 1 ? ' ×' + p.lag : '');
-            if (p.h * sc >= 14 || p.w * sc >= 40) {
-                items += '<text x="' + (x + p.w * sc / 2) + '" y="' + (y + p.h * sc / 2) + '" font-size="11" font-family="Inter, system-ui, sans-serif" fill="var(--ink)" text-anchor="middle" dominant-baseline="middle">' + lbl + '</text>';
+            items += '<rect x="' + x + '" y="' + y + '" width="' + (e.l * sc) + '" height="' + (e.b * sc) + '" fill="var(--fill-2)" stroke="var(--ink-2)"/>';
+            const lbl = (e.linje + 1) + (e.lag > 1 ? ' ×' + e.lag : '');
+            if (e.b * sc >= 14 || e.l * sc >= 40) {
+                items += '<text x="' + (x + e.l * sc / 2) + '" y="' + (y + e.b * sc / 2) + '" font-size="11" font-family="Inter, system-ui, sans-serif" fill="var(--ink)" text-anchor="middle" dominant-baseline="middle">' + lbl + '</text>';
             }
         });
-
         let akse = '';
         for (let m = 0; m <= s.trailerL + 1e-9; m += 2) {
             akse += '<text x="' + (pad + m * sc) + '" y="' + (pad + H + 16) + '" font-size="10" font-family="Inter, system-ui, sans-serif" fill="var(--ink-3)" text-anchor="middle">' + fmt(m, 0) + ' m</text>';
         }
-
-        svgWrap.innerHTML = '<svg viewBox="0 0 ' + vbW + ' ' + vbH + '" role="img" aria-label="Lastbillede af trailerens gulv">' +
+        return '<svg viewBox="0 0 ' + vbW + ' ' + vbH + '" role="img" aria-label="Lastplan for trailerens gulv">' +
             '<rect x="' + pad + '" y="' + pad + '" width="' + W + '" height="' + H + '" fill="var(--surface)" stroke="var(--ink)"/>' +
             g + items + akse + '</svg>';
+    }
 
-        const t = res.tot;
-        const ldmPct = Math.min(100, t.ldm / s.trailerL * 100);
-        const kgPct = Math.min(100, t.vaegt / s.maksVaegt * 100);
-        barsEl.innerHTML =
-            '<div class="bar' + (t.ldm > s.trailerL + 1e-9 ? ' over' : '') + '"><div class="track"><div class="fill" style="width:' + ldmPct + '%"></div></div><span class="bar-lbl">' + fmt(t.ldm, 2) + ' af ' + fmt(s.trailerL, 1) + ' LDM</span></div>' +
-            '<div class="bar' + (t.vaegt > s.maksVaegt + 1e-9 ? ' over' : '') + '"><div class="track"><div class="fill" style="width:' + kgPct + '%"></div></div><span class="bar-lbl">' + fmt(t.vaegt, 0) + ' af ' + fmt(s.maksVaegt, 0) + ' kg</span></div>';
+    function bar(vaerdi, maks, lbl) {
+        const pct = maks > 0 ? Math.min(100, vaerdi / maks * 100) : 0;
+        return '<div class="bar' + (vaerdi > maks + 1e-9 ? ' over' : '') + '"><div class="track"><div class="fill" style="width:' + pct + '%"></div></div><span class="bar-lbl">' + lbl + '</span></div>';
+    }
+
+    function renderLast(res) {
+        const s = state.s;
+        const auto = s.pakning === 'auto';
+        const plan = pak(lavEnheder(res), s, auto);
+        const n = plan.trailere.length;
+
+        let oversigt = '';
+        if (n === 0) oversigt = '<p class="cap">Intet gods at laste.</p>';
+        else if (n === 1) oversigt = '<p>Sendingen kan lastes på <strong>én trailer</strong>.</p>';
+        else oversigt = '<p>Sendingen kræver <strong>' + n + ' trailere</strong>. Nedenfor ses hver trailer for sig.</p>';
+        if (plan.ikkePlaceret.length) {
+            oversigt += '<div class="callout"><ul><li>' + plan.ikkePlaceret.length + ' enhed(er) kan ikke lastes i en standardtrailer (for lang, for bred eller for tung). De indgår i afregningen, men ikke i lastplanen.</li></ul></div>';
+        }
+        lastOversigtEl.innerHTML = oversigt;
+
+        trailereEl.innerHTML = plan.trailere.map((t, i) => {
+            const antalKolli = t.enheder.reduce((a, e) => a + e.lag, 0);
+            return '<div class="trailer">' +
+                '<div class="t-head"><h3>' + (n > 1 ? 'Trailer ' + (i + 1) : 'Trailer') + '</h3>' +
+                    '<span class="t-rest">' + antalKolli + ' kolli · ledig bagved: ' + fmt(t.ledigL, 2) + ' LDM, ' + t.ledigPladser + ' hele EUR-pallepladser · ledig vægt: ' + fmt(t.ledigKg, 0) + ' kg</span></div>' +
+                '<div class="svg-wrap">' + trailerSvg(t, s) + '</div>' +
+                '<div class="bars">' +
+                    bar(t.brugtL, s.trailerL, fmt(t.brugtL, 2) + ' af ' + fmt(s.trailerL, 1) + ' LDM brugt') +
+                    bar(t.vaegt, s.maksVaegt, fmt(t.vaegt, 0) + ' af ' + fmt(s.maksVaegt, 0) + ' kg') +
+                '</div>' +
+            '</div>';
+        }).join('');
     }
 
     /* ---------- Start ---------- */
@@ -1092,7 +1195,7 @@
     renderResultat();
 
     // Til test fra konsol eller script
-    window.FV = { beregn, beregnPris, TYPER, STANDARD, tal };
+    window.FV = { beregn, beregnPris, pak, lavEnheder, TYPER, STANDARD, tal };
 })();
 </script>
 </body>

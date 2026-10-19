@@ -11,6 +11,6 @@ Indhold:
 
 Siden er én selvstændig HTML-fil uden eksterne afhængigheder.
 
-**Beregner:** `fragtpligtig-vaegt_beregner_v1.html` er en selvstændig beregner til fragtpligtig vægt med dimensioner, EUR- og industripaller, stabling, lademeter efter areal eller optagne pallepladser samt pris i DKK, EUR eller USD.
+**Beregner:** `fragtpligtig-vaegt_beregner_v1.html` er en selvstændig beregner til fragtpligtig vægt med dimensioner, EUR- og industripaller, stabling, lademeter efter areal eller optagne pallepladser samt pris i DKK, EUR eller USD. Lastplanen pakker godset automatisk (største først, rotation, på tværs af linjer) eller i manuel rækkefølge, fordeler på flere trailere ved fuldt gulv eller fuld vægt og viser restplads pr. trailer.
 
 **Live:** https://mortensillesen.github.io/fragtpligtig-vaegt/
