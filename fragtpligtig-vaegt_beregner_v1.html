@@ -367,7 +367,7 @@
             <div class="metode" role="radiogroup" aria-label="Lademetermetode">
                 <label>
                     <input type="radio" name="ldmMetode" value="max" checked>
-                    <span><span class="m-title">Højeste af de to metoder</span><br><span class="m-desc">Standard. Kollit afregnes for den plads det reelt blokerer, uanset om det er arealet eller pallepladserne der vejer tungest.</span></span>
+                    <span><span class="m-title">Højeste af de to metoder</span><br><span class="m-desc">Standard. Linjen afregnes for den plads den reelt blokerer, uanset om det er arealet eller banerne der vejer tungest.</span></span>
                 </label>
                 <label>
                     <input type="radio" name="ldmMetode" value="areal">
@@ -375,7 +375,7 @@
                 </label>
                 <label>
                     <input type="radio" name="ldmMetode" value="palle">
-                    <span><span class="m-title">Optagne pallepladser</span><br><span class="m-desc">Kolliene lægges på langs og side om side, og den samlede bredde rundes op til hele baner på 0,8 m. Et rør på 6 m blokerer fem pallepladser bag hinanden, selvom det kun dækker 0,5 LDM i areal. To rør deler én bane og giver stadig 2,0 LDM.</span></span>
+                    <span><span class="m-title">Optagne pallepladser</span><br><span class="m-desc">Kolliene lægges på langs og side om side i rækker. Bredden rundes op til hele baner på 0,8 m, og hver række tæller sin længde gange den andel af trailerens bredde, banerne optager. Et rør på 6 m blokerer én bane i 6 m længde: 6,0 × 1/3 = 2,0 LDM, selvom det kun dækker 0,5 LDM i areal. To rør deler én bane og giver stadig 2,0 LDM.</span></span>
                 </label>
             </div>
             <label class="check" style="margin-top: 12px;">
@@ -558,16 +558,15 @@
             }
         } else {
             ldmAreal = gulvpladser * L * B / s.trailerB;
-            const langs = Math.max(1, Math.ceil(L / s.pladsL - 1e-9));
             const prRaekke = Math.max(1, Math.floor(s.trailerB / B + 1e-9));
-            let baner = 0;
+            ldmPalle = 0;
             for (let rest = gulvpladser; rest > 0; rest -= prRaekke) {
                 const n = Math.min(prRaekke, rest);
                 const b = Math.min(maxBaner, Math.max(1, Math.ceil(n * B / s.pladsB - 1e-9)));
-                baner += b;
-                raekker.push({ stk: n, fodL: langs * s.pladsL, fodB: Math.min(s.trailerB, b * s.pladsB), aktL: L, aktB: n * B, reserveret: true });
+                // Rækkens længde gange den andel af bredden, banerne optager. Længden rundes ikke op.
+                ldmPalle += L * b / maxBaner;
+                raekker.push({ stk: n, fodL: L, fodB: Math.min(s.trailerB, b * s.pladsB), reserveret: true });
             }
-            ldmPalle = langs * baner * ldmPrPlads;
         }
         let metodeBrugt = s.ldmMetode;
         if (metodeBrugt === 'max') metodeBrugt = ldmPalle > ldmAreal + 1e-9 ? 'palle' : 'areal';
