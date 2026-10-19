@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fragtpligtig vægt beregner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+<style>
+    /* Morten Sillesen Design System: "Enkel & ærlig".
+       Varm papirbaggrund, tre trin blæk, hårlinjer og én signalfarve i små doser. */
+    :root {
+        --paper:       #F6F5F1;
+        --surface:     #FFFFFF;
+        --ink:         #1B1B19;
+        --ink-2:       #57564F;
+        --ink-3:       #97968D;
+        --line:        #E3E1D9;
+        --accent:      #D8480E;
+        --accent-ink:  #B23A0B;
+        --accent-wash: #FBEDE6;
+        --fill-1:      #EDECE7;
+        --fill-2:      #CFCDC4;
+
+        --font-sans:  "Inter", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+        --font-serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+
+        --text-h1:     30px;
+        --text-h2:     22px;
+        --text-h3:     18px;
+        --text-body:   16px;
+        --text-cap:    13px;
+        --text-eyebrow:12px;
+
+        --space-half: 4px;
+        --space-1:  8px;
+        --space-2:  16px;
+        --space-3:  24px;
+        --space-4:  32px;
+        --space-6:  48px;
+        --space-8:  64px;
+
+        --measure: 920px;
+        --radius:  2px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    [hidden] { display: none !important; }
+
+    html { color-scheme: light; }
+
+    body {
+        font-family: var(--font-sans);
+        font-size: var(--text-body);
+        line-height: 1.6;
+        color: var(--ink);
+        background: var(--paper);
+        padding-block: var(--space-4) var(--space-8);
+        padding-left: max(16px, env(safe-area-inset-left, 0px));
+        padding-right: max(16px, env(safe-area-inset-right, 0px));
+        -webkit-font-smoothing: antialiased;
+    }
+
+    .container { max-width: var(--measure); margin: 0 auto; display: grid; gap: var(--space-2); }
+
+    /* Typografi */
+    .eyebrow {
+        font-size: var(--text-eyebrow);
+        font-weight: 500;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--ink-3);
+    }
+    h1 {
+        font-size: var(--text-h1);
+        font-weight: 600;
+        line-height: 1.15;
+        letter-spacing: -0.015em;
+        text-wrap: balance;
+        margin-top: var(--space-1);
+    }
+    h2 {
+        font-size: var(--text-h2);
+        font-weight: 600;
+        line-height: 1.25;
+        letter-spacing: -0.01em;
+        text-wrap: balance;
+    }
+    h3 {
+        font-size: var(--text-h3);
+        font-weight: 600;
+        line-height: 1.3;
+    }
+    .sub { color: var(--ink-2); margin-top: var(--space-1); font-family: var(--font-serif); font-size: 17px; }
+    .prose { font-family: var(--font-serif); color: var(--ink-2); max-width: 64ch; }
+    .prose p + p { margin-top: var(--space-1); }
+    .cap { font-size: var(--text-cap); line-height: 1.5; color: var(--ink-3); }
+    .num { font-variant-numeric: tabular-nums; }
+
+    /* Kort */
+    header { padding-block: var(--space-2) var(--space-3); border-bottom: 1px solid var(--line); }
+    .card {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: var(--space-3);
+        display: grid;
+        gap: var(--space-2);
+    }
+    .card-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); flex-wrap: wrap; }
+    .card-head .cap { max-width: 48ch; }
+
+    /* Faner */
+    .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--line); }
+    .tab {
+        font: inherit;
+        font-weight: 500;
+        color: var(--ink-2);
+        background: none;
+        border: none;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -1px;
+        padding: var(--space-1) var(--space-2);
+        cursor: pointer;
+        transition: color 150ms ease, border-color 150ms ease;
+    }
+    .tab:hover { color: var(--ink); }
+    .tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+    .tab:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+    }
+
+    /* Knapper */
+    .btn {
+        font: inherit;
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--ink);
+        background: var(--surface);
+        border: 1px solid var(--ink-3);
+        border-radius: var(--radius);
+        padding: 6px 12px;
+        cursor: pointer;
+        transition: border-color 150ms ease, color 150ms ease, background 150ms ease;
+    }
+    .btn:hover { border-color: var(--ink); }
+    .btn-ghost { border-color: transparent; color: var(--ink-2); padding-inline: 8px; }
+    .btn-ghost:hover { color: var(--accent-ink); border-color: transparent; }
+    .btn-row { display: flex; gap: var(--space-1); flex-wrap: wrap; align-items: center; }
+    .btn-row .cap { margin-right: var(--space-half); }
+
+    /* Felter */
+    .felt { display: grid; gap: 2px; min-width: 0; }
+    .felt-lbl { font-size: var(--text-cap); color: var(--ink-3); line-height: 1.3; white-space: nowrap; }
+    input[type="text"], select {
+        font: inherit;
+        font-size: 15px;
+        color: var(--ink);
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: 6px 8px;
+        width: 100%;
+        min-width: 0;
+        transition: border-color 150ms ease;
+        font-variant-numeric: tabular-nums;
+    }
+    input[type="text"]:hover, select:hover { border-color: var(--ink-3); }
+    input[type="text"]:disabled { color: var(--ink-3); background: var(--paper); }
+    input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); width: 16px; height: 16px; cursor: pointer; }
+    .check { display: flex; align-items: center; gap: var(--space-1); font-size: 15px; cursor: pointer; }
+
+    /* Godslinjer */
+    .linjer { display: grid; gap: var(--space-1); }
+    .linje {
+        display: grid;
+        grid-template-columns: 28px 2.2fr 0.8fr 1fr 1fr 1fr 1.1fr auto;
+        gap: var(--space-1);
+        align-items: end;
+        padding: var(--space-1) 0 var(--space-2);
+        border-bottom: 1px solid var(--line);
+    }
+    .linje:last-child { border-bottom: none; }
+    .linje .nr { font-size: var(--text-cap); color: var(--ink-3); padding-bottom: 9px; }
+    .linje .stabling { grid-column: 2 / 8; display: flex; gap: var(--space-2); align-items: center; flex-wrap: wrap; }
+    .linje .stabling .felt { width: 110px; }
+    .linje .fjern { padding-bottom: 2px; }
+    body[data-mode="luft"] .stabling, body[data-mode="soe"] .stabling { display: none; }
+
+    /* Radiogruppe til LDM-metode */
+    .metode { display: grid; gap: var(--space-1); }
+    .metode label {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: var(--space-1) var(--space-2);
+        align-items: start;
+        padding: var(--space-1) var(--space-2);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        cursor: pointer;
+        transition: border-color 150ms ease;
+    }
+    .metode label:hover { border-color: var(--ink-3); }
+    .metode label:has(input:checked) { border-color: var(--ink); }
+    .metode input { margin-top: 4px; }
+    .metode .m-title { font-weight: 500; }
+    .metode .m-desc { font-size: var(--text-cap); color: var(--ink-2); font-family: var(--font-serif); font-size: 14px; }
+
+    /* Tabeller */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+    th, td { text-align: right; padding: 8px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+    th { white-space: normal; line-height: 1.3; vertical-align: bottom; }
+    th:first-child, td:first-child { text-align: left; }
+    th {
+        font-size: var(--text-eyebrow);
+        font-weight: 500;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--ink-3);
+        border-bottom: 1px solid var(--ink-3);
+    }
+    tr:last-child td { border-bottom: none; }
+    td.dim { color: var(--ink-3); }
+    td.brugt { font-weight: 600; }
+    tfoot td { font-weight: 600; border-top: 1px solid var(--ink-3); }
+
+    /* Resultatkort */
+    .result-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--space-2); }
+    .result {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: var(--space-2);
+        display: grid;
+        gap: var(--space-1);
+        align-content: start;
+    }
+    .result .r-title { font-weight: 600; }
+    .result .r-rows { display: grid; gap: 6px; font-size: 14px; }
+    .result .r-row { display: flex; justify-content: space-between; gap: var(--space-2); border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+    .result .r-row:last-child { border-bottom: none; }
+    .result .r-lbl { color: var(--ink-3); font-size: var(--text-cap); }
+    .result .r-val { font-variant-numeric: tabular-nums; }
+    .result .r-val.vinder { font-weight: 600; }
+    .result .big {
+        font-size: 30px;
+        font-weight: 600;
+        letter-spacing: -0.015em;
+        line-height: 1.1;
+        color: var(--accent);
+        font-variant-numeric: tabular-nums;
+    }
+    .result .big small { font-size: 14px; font-weight: 500; color: var(--ink-2); letter-spacing: 0; margin-left: 4px; }
+    .result .pris-line { padding-top: var(--space-1); border-top: 1px solid var(--line); font-size: 14px; }
+    .result .pris-line strong { font-weight: 600; }
+
+    /* Callout med accentstreg */
+    .callout {
+        border-left: 2px solid var(--accent);
+        background: var(--accent-wash);
+        padding: var(--space-1) var(--space-2);
+        font-size: 14px;
+        display: grid;
+        gap: var(--space-half);
+    }
+    .callout.neutral { background: var(--paper); border-left-color: var(--ink-3); color: var(--ink-2); font-family: var(--font-serif); font-size: 15px; }
+    .callout ul { list-style: none; display: grid; gap: 2px; }
+    .callout li::before { content: ""; display: inline-block; width: 5px; height: 5px; background: var(--accent); margin-right: 8px; vertical-align: middle; }
+
+    /* Lastbillede */
+    .svg-wrap { overflow-x: auto; }
+    .svg-wrap svg { display: block; width: 100%; min-width: 560px; height: auto; }
+    .bars { display: grid; gap: var(--space-1); }
+    .bar { display: grid; grid-template-columns: 1fr auto; gap: var(--space-2); align-items: center; font-size: 14px; }
+    .bar .track { height: 8px; background: var(--fill-1); border-radius: var(--radius); overflow: hidden; }
+    .bar .fill { height: 100%; background: var(--ink-2); transition: width 150ms ease; }
+    .bar.over .fill { background: var(--accent); }
+    .bar .bar-lbl { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+    /* Pris */
+    .pris-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--space-2); align-items: end; }
+
+    /* Indstillinger */
+    details { border-top: 1px solid var(--line); padding-top: var(--space-2); }
+    summary { cursor: pointer; font-weight: 500; color: var(--ink-2); list-style: none; display: flex; align-items: center; gap: var(--space-1); }
+    summary::-webkit-details-marker { display: none; }
+    summary::before { content: "+"; display: inline-block; width: 14px; color: var(--ink-3); }
+    details[open] summary::before { content: "−"; }
+    .set-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: var(--space-2); margin-top: var(--space-2); }
+
+    footer { font-size: var(--text-cap); color: var(--ink-3); text-align: center; padding-top: var(--space-2); }
+
+    @media (max-width: 720px) {
+        .linje { grid-template-columns: repeat(4, 1fr); }
+        .linje .nr { grid-column: 1 / -1; padding-bottom: 0; }
+        .linje .f-type { grid-column: 1 / -1; }
+        .linje .f-vaegt { grid-column: 1 / 3; }
+        .linje .fjern { grid-column: 3 / 5; justify-self: end; }
+        .linje .stabling { grid-column: 1 / -1; }
+    }
+    @media (max-width: 560px) {
+        body { padding-block: var(--space-2) var(--space-6); }
+        .card { padding: var(--space-2); }
+        h1 { font-size: 26px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+        * { transition: none !important; }
+    }
+</style>
+</head>
+<body data-mode="vej">
+<div class="container">
+
+    <header>
+        <div class="eyebrow">Spedition &amp; Shipping · Værktøj</div>
+        <h1>Fragtpligtig vægt</h1>
+        <div class="sub">Beregner til stykgods og partloads: dimensioner, paller, stabling og lademeter</div>
+    </header>
+
+    <section class="card">
+        <div class="prose">
+            <p>Indtast godset linje for linje. Beregneren finder volumen i den relevante enhed, omregner vægten med branchens standardfaktorer og vælger den højeste af de to. Det er de fire trin fra undervisningsforløbet, bare udført af maskinen.</p>
+            <p>Tallene på siden er et eksempel. Ret dem, eller vælg et af de færdige eksempler.</p>
+        </div>
+        <div class="tabs" role="tablist" aria-label="Transportform">
+            <button class="tab" role="tab" type="button" data-mode="vej" aria-selected="true">Vejgods</button>
+            <button class="tab" role="tab" type="button" data-mode="luft" aria-selected="false">Luftfragt</button>
+            <button class="tab" role="tab" type="button" data-mode="soe" aria-selected="false">Søfragt (LCL)</button>
+        </div>
+    </section>
+
+    <section class="card">
+        <div class="card-head">
+            <h2>Gods</h2>
+            <div class="btn-row">
+                <span class="cap">Eksempler</span>
+                <button class="btn btn-ghost" type="button" data-eks="paller">10 EUR-paller</button>
+                <button class="btn btn-ghost" type="button" data-eks="roer">Langt rør 6 m</button>
+                <button class="btn btn-ghost" type="button" data-eks="blandet">Blandet sending</button>
+            </div>
+        </div>
+        <div class="linjer" id="linjer"></div>
+        <div class="btn-row">
+            <button class="btn" type="button" id="tilfoej">Tilføj linje</button>
+            <span class="cap">Mål i meter, vægt i kg pr. stk. Pallehøjde er samlet højde inkl. pallen.</span>
+        </div>
+    </section>
+
+    <section class="card" id="resultat-card">
+        <div class="card-head">
+            <h2>Fragtpligtig vægt</h2>
+            <span class="cap" id="resultat-cap"></span>
+        </div>
+        <div id="metode-wrap">
+            <div class="metode" role="radiogroup" aria-label="Lademetermetode">
+                <label>
+                    <input type="radio" name="ldmMetode" value="max" checked>
+                    <span><span class="m-title">Højeste af de to metoder</span><br><span class="m-desc">Standard. Kollit afregnes for den plads det reelt blokerer, uanset om det er arealet eller pallepladserne der vejer tungest.</span></span>
+                </label>
+                <label>
+                    <input type="radio" name="ldmMetode" value="areal">
+                    <span><span class="m-title">Areal</span><br><span class="m-desc">Længde × bredde ÷ trailerens bredde (2,4 m). En EUR-palle giver 0,4 LDM, en industripalle 0,5 LDM.</span></span>
+                </label>
+                <label>
+                    <input type="radio" name="ldmMetode" value="palle">
+                    <span><span class="m-title">Optagne pallepladser</span><br><span class="m-desc">Kollit lægges på langs og rundes op til hele pallepladser på 1,2 × 0,8 m i tre baner. Et rør på 6 m blokerer fem pladser bag hinanden, selvom det kun dækker 0,5 LDM i areal.</span></span>
+                </label>
+            </div>
+            <label class="check" style="margin-top: 12px;">
+                <input type="checkbox" id="fuldHoejde" checked>
+                <span>Ikke-stabelbart gods afregnes til fuld lastehøjde i kubikmeter</span>
+            </label>
+        </div>
+        <div id="advarsler"></div>
+        <div class="table-wrap" id="linjetabel"></div>
+        <div class="result-grid" id="resultater"></div>
+    </section>
+
+    <section class="card">
+        <div class="card-head">
+            <h2>Pris</h2>
+            <span class="cap">Trin 4: fragtpligtig vægt × tarif</span>
+        </div>
+        <div class="pris-grid">
+            <label class="felt"><span class="felt-lbl">Afregningsenhed</span><select id="prisEnhed"></select></label>
+            <label class="felt"><span class="felt-lbl">Tarif pr. enhed</span><input type="text" inputmode="decimal" id="prisTarif" placeholder="fx 1600"></label>
+            <label class="felt"><span class="felt-lbl">Valuta</span>
+                <select id="prisValuta">
+                    <option value="DKK">DKK</option>
+                    <option value="EUR">EUR</option>
+                    <option value="USD">USD</option>
+                </select>
+            </label>
+            <label class="felt" id="kursFelt" hidden><span class="felt-lbl" id="kursLbl">Kurs (DKK pr. 1 EUR)</span><input type="text" inputmode="decimal" id="prisKurs" placeholder="udfyld"></label>
+        </div>
+        <div id="prisResultat"></div>
+    </section>
+
+    <section class="card" id="last-card">
+        <div class="card-head">
+            <h2>Lastbillede</h2>
+            <span class="cap">Trailerens gulv set fra oven. Stiplet ramme er den plads kollit blokerer.</span>
+        </div>
+        <div class="svg-wrap" id="svgWrap"></div>
+        <div class="bars" id="bars"></div>
+    </section>
+
+    <section class="card">
+        <details id="indstillinger">
+            <summary>Omregningsfaktorer og trailer</summary>
+            <div class="set-grid">
+                <label class="felt"><span class="felt-lbl">Luftfragt, kg pr. CBM</span><input type="text" inputmode="decimal" data-set="luftFaktor"></label>
+                <label class="felt"><span class="felt-lbl">Vejgods, kg pr. LDM</span><input type="text" inputmode="decimal" data-set="ldmFaktor"></label>
+                <label class="felt"><span class="felt-lbl">Vejgods, kg pr. CBM</span><input type="text" inputmode="decimal" data-set="cbmFaktor"></label>
+                <label class="felt"><span class="felt-lbl">Vejgods, kg pr. EUR-palle</span><input type="text" inputmode="decimal" data-set="pllFaktor"></label>
+                <label class="felt"><span class="felt-lbl">Søfragt LCL, kg pr. CBM</span><input type="text" inputmode="decimal" data-set="lclFaktor"></label>
+                <label class="felt"><span class="felt-lbl">Trailer, længde m</span><input type="text" inputmode="decimal" data-set="trailerL"></label>
+                <label class="felt"><span class="felt-lbl">Trailer, bredde m</span><input type="text" inputmode="decimal" data-set="trailerB"></label>
+                <label class="felt"><span class="felt-lbl">Lastehøjde m</span><input type="text" inputmode="decimal" data-set="lasteH"></label>
+                <label class="felt"><span class="felt-lbl">Maks. lastvægt kg</span><input type="text" inputmode="decimal" data-set="maksVaegt"></label>
+            </div>
+            <div class="btn-row" style="margin-top: 16px;">
+                <button class="btn" type="button" id="nulstil">Nulstil til branchestandard</button>
+                <span class="cap">Speditøren kan aftale andre omregningsfaktorer med sin kunde.</span>
+            </div>
+        </details>
+    </section>
+
+    <footer>Fragtpligtig vægt · Spedition &amp; Shipping · Af Morten Sillesen · Til undervisningsbrug</footer>
+</div>
+
+<script>
+(function () {
+    'use strict';
+
+    /* ---------- Data ---------- */
+
+    const TYPER = {
+        kolli:    { navn: 'Kolli (egne mål)',          l: null, b: null, ldm: null },
+        eur:      { navn: 'EUR-palle 1,20 × 0,80',     l: 1.2,  b: 0.8,  ldm: 0.4 },
+        industri: { navn: 'Industripalle 1,20 × 1,00', l: 1.2,  b: 1.0,  ldm: 0.5 },
+        halv:     { navn: 'Halvpalle 0,80 × 0,60',     l: 0.8,  b: 0.6,  ldm: 0.2 }
+    };
+
+    const STANDARD = {
+        luftFaktor: 166.67,
+        ldmFaktor: 1850,
+        cbmFaktor: 333,
+        pllFaktor: 740,
+        lclFaktor: 1000,
+        trailerL: 13.6,
+        trailerB: 2.4,
+        lasteH: 2.65,
+        maksVaegt: 24000,
+        pladsL: 1.2,
+        pladsB: 0.8
+    };
+
+    const EKSEMPLER = {
+        paller: [
+            { type: 'eur', antal: 10, l: 1.2, b: 0.8, h: 1.2, vaegt: 590, stabelbar: false, maksLag: 2 }
+        ],
+        roer: [
+            { type: 'kolli', antal: 1, l: 6.0, b: 0.2, h: 0.2, vaegt: 180, stabelbar: false, maksLag: 2 }
+        ],
+        blandet: [
+            { type: 'eur', antal: 6, l: 1.2, b: 0.8, h: 1.2, vaegt: 420, stabelbar: true, maksLag: 2 },
+            { type: 'industri', antal: 2, l: 1.2, b: 1.0, h: 1.6, vaegt: 650, stabelbar: false, maksLag: 2 },
+            { type: 'kolli', antal: 1, l: 6.0, b: 0.2, h: 0.2, vaegt: 180, stabelbar: false, maksLag: 2 }
+        ]
+    };
+
+    const ENHEDER = {
+        vej:  [ { v: 'ldm', t: 'pr. LDM' }, { v: 'cbm', t: 'pr. CBM' }, { v: 'pll', t: 'pr. EUR-palle' } ],
+        luft: [ { v: 'kg', t: 'pr. kg' } ],
+        soe:  [ { v: 'wm', t: 'pr. W/M (CBM)' } ]
+    };
+
+    /* ---------- Beregning (ren logik, uden DOM) ---------- */
+
+    function tal(v) {
+        if (typeof v === 'number') return isFinite(v) ? v : 0;
+        if (v == null) return 0;
+        const n = parseFloat(String(v).trim().replace(/\s/g, '').replace(',', '.'));
+        return isFinite(n) ? n : 0;
+    }
+
+    function beregnLinje(linje, s, mode) {
+        const t = TYPER[linje.type] || TYPER.kolli;
+        const l = t.l != null ? t.l : tal(linje.l);
+        const b = t.b != null ? t.b : tal(linje.b);
+        const h = tal(linje.h);
+        const antal = Math.max(0, Math.floor(tal(linje.antal)));
+        const vaegtStk = tal(linje.vaegt);
+        const L = Math.max(l, b);
+        const B = Math.min(l, b);
+        const advarsler = [];
+
+        // Stabling: kun relevant for vejgods
+        let lag = 1;
+        const stabelbar = mode === 'vej' && !!linje.stabelbar;
+        if (stabelbar) {
+            const fysiskLag = h > 0 ? Math.floor(s.lasteH / h + 1e-9) : 1;
+            const oensket = Math.max(1, Math.floor(tal(linje.maksLag)) || 1);
+            lag = Math.max(1, Math.min(oensket, fysiskLag));
+            if (oensket >= 2 && fysiskLag < 2) {
+                advarsler.push('Kan ikke stables: to lag på ' + fmt(h, 2) + ' m overstiger lastehøjden på ' + fmt(s.lasteH, 2) + ' m.');
+            }
+        }
+        const gulvpladser = Math.ceil(antal / lag);
+
+        // Lademeter pr. gulvplads efter to metoder
+        const ldmPrPlads = s.pladsL * s.pladsB / s.trailerB; // 0,4 ved standardmål
+        let ldmAreal, ldmPalle, fodArealL, fodArealB, fodPalleL, fodPalleB;
+        if (t.ldm != null) {
+            ldmAreal = ldmPalle = t.ldm;
+            fodArealL = fodPalleL = L;
+            fodArealB = fodPalleB = B;
+        } else {
+            ldmAreal = L * B / s.trailerB;
+            const maxBaner = Math.max(1, Math.floor(s.trailerB / s.pladsB + 1e-9));
+            const baner = Math.min(maxBaner, Math.max(1, Math.ceil(B / s.pladsB - 1e-9)));
+            const langs = Math.max(1, Math.ceil(L / s.pladsL - 1e-9));
+            ldmPalle = langs * baner * ldmPrPlads;
+            fodArealL = L; fodArealB = B;
+            fodPalleL = langs * s.pladsL;
+            fodPalleB = Math.min(s.trailerB, baner * s.pladsB);
+        }
+        let metodeBrugt = s.ldmMetode;
+        if (metodeBrugt === 'max') metodeBrugt = ldmPalle > ldmAreal + 1e-9 ? 'palle' : 'areal';
+        const ldmBrugt = metodeBrugt === 'palle' ? ldmPalle : ldmAreal;
+        const fodL = metodeBrugt === 'palle' ? fodPalleL : fodArealL;
+        const fodB = metodeBrugt === 'palle' ? fodPalleB : fodArealB;
+        const ldm = gulvpladser * ldmBrugt;
+
+        // Kubikmeter
+        const cbm = l * b * h * antal;
+        const fuldHoejde = mode === 'vej' && s.fuldHoejde && !stabelbar && h < s.lasteH;
+        const cbmAfregnet = fuldHoejde ? l * b * s.lasteH * antal : cbm;
+
+        const vaegt = vaegtStk * antal;
+
+        if (mode === 'vej') {
+            if (B > s.trailerB + 1e-9) advarsler.push('Specialtransport: kollit er ' + fmt(B, 2) + ' m bredt og bredere end traileren.');
+            if (h > s.lasteH + 1e-9) advarsler.push('Specialtransport: kollit er ' + fmt(h, 2) + ' m højt og højere end lastehøjden.');
+        }
+
+        return {
+            type: linje.type, navn: t.navn, antal, l, b, h, L, B, vaegtStk, vaegt,
+            stabelbar, lag, gulvpladser,
+            ldmAreal, ldmPalle, ldmBrugt, metodeBrugt, ldm, fodL, fodB,
+            cbm, cbmAfregnet, fuldHoejde, advarsler
+        };
+    }
+
+    function beregn(linjer, s, mode) {
+        const res = linjer.map(li => beregnLinje(li, s, mode));
+        const ldmPrPlads = s.pladsL * s.pladsB / s.trailerB;
+        const sum = (f) => res.reduce((a, r) => a + f(r), 0);
+        const tot = {
+            ldm: sum(r => r.ldm),
+            cbm: sum(r => r.cbm),
+            cbmAfregnet: sum(r => r.cbmAfregnet),
+            vaegt: sum(r => r.vaegt),
+            antal: sum(r => r.antal),
+            gulvpladser: sum(r => r.gulvpladser)
+        };
+        tot.pll = tot.ldm / ldmPrPlads;
+
+        const advarsler = [];
+        res.forEach((r, i) => r.advarsler.forEach(a => advarsler.push('Linje ' + (i + 1) + ': ' + a)));
+        if (mode === 'vej') {
+            if (tot.ldm > s.trailerL + 1e-9) advarsler.push('Sendingen fylder ' + fmt(tot.ldm, 2) + ' LDM og overstiger én trailer på ' + fmt(s.trailerL, 1) + ' m.');
+            if (tot.vaegt > s.maksVaegt + 1e-9) advarsler.push('Sendingen vejer ' + fmt(tot.vaegt, 0) + ' kg og overstiger maks. lastvægt på ' + fmt(s.maksVaegt, 0) + ' kg.');
+        }
+
+        let kort = [];
+        if (mode === 'vej') {
+            kort = [
+                mkKort('ldm', 'Lademeter', 'LDM', tot.ldm, tot.vaegt / s.ldmFaktor, s.ldmFaktor, tot.vaegt),
+                mkKort('cbm', 'Kubikmeter', 'CBM', tot.cbmAfregnet, tot.vaegt / s.cbmFaktor, s.cbmFaktor, tot.vaegt),
+                mkKort('pll', 'EUR-pallepladser', 'PLL', tot.pll, tot.vaegt / s.pllFaktor, s.pllFaktor, tot.vaegt)
+            ];
+        } else if (mode === 'luft') {
+            const volVaegt = tot.cbm * s.luftFaktor;
+            const raa = Math.max(tot.vaegt, volVaegt);
+            const k = mkKort('kg', 'Luftfragt', 'kg', volVaegt, tot.vaegt, s.luftFaktor, tot.vaegt);
+            k.volumenLabel = 'Volumenvægt (' + fmt(tot.cbm, 3) + ' CBM × ' + fmt(s.luftFaktor, 2) + ')';
+            k.vaegtLabel = 'Faktisk vægt';
+            k.fragtpligtig = Math.ceil(Math.round(raa * 100) / 100 * 2) / 2;
+            k.afrundet = k.fragtpligtig !== raa;
+            kort = [k];
+        } else {
+            const k = mkKort('wm', 'Søfragt LCL', 'W/M', tot.cbm, tot.vaegt / s.lclFaktor, s.lclFaktor, tot.vaegt);
+            k.minimum = k.fragtpligtig < 1;
+            if (k.minimum) k.fragtpligtig = 1;
+            kort = [k];
+        }
+
+        return { linjer: res, tot, kort, advarsler, mode };
+    }
+
+    function mkKort(enhed, titel, kort, volumen, vaegtOmregnet, faktor, vaegt) {
+        return {
+            enhed, titel, kort, volumen, vaegtOmregnet, faktor, vaegt,
+            vinder: vaegtOmregnet > volumen + 1e-9 ? 'vaegt' : 'volumen',
+            fragtpligtig: Math.max(volumen, vaegtOmregnet)
+        };
+    }
+
+    function beregnPris(resultat, pris) {
+        const kortet = resultat.kort.find(k => k.enhed === pris.enhed) || resultat.kort[0];
+        const tarif = tal(pris.tarif);
+        const kurs = tal(pris.kurs);
+        if (!kortet || tarif <= 0) return null;
+        const beloeb = kortet.fragtpligtig * tarif;
+        return {
+            kort: kortet, tarif, valuta: pris.valuta, beloeb,
+            kursMangler: pris.valuta !== 'DKK' && kurs <= 0,
+            beloebDKK: pris.valuta === 'DKK' ? beloeb : (kurs > 0 ? beloeb * kurs : null)
+        };
+    }
+
+    /* ---------- Formatering ---------- */
+
+    function fmt(n, d) {
+        if (d == null) d = 2;
+        if (!isFinite(n)) n = 0;
+        return n.toLocaleString('da-DK', { minimumFractionDigits: d, maximumFractionDigits: d });
+    }
+    function fmtInput(n) {
+        return n == null || n === '' ? '' : String(n).replace('.', ',');
+    }
+    function esc(s) {
+        return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    }
+
+    /* ---------- Tilstand ---------- */
+
+    const state = {
+        mode: 'vej',
+        linjer: EKSEMPLER.blandet.map(x => Object.assign({}, x)),
+        s: Object.assign({ ldmMetode: 'max', fuldHoejde: true }, STANDARD),
+        pris: { enhed: 'ldm', tarif: '', valuta: 'DKK', kurs: '' }
+    };
+
+    /* ---------- DOM: godslinjer ---------- */
+
+    const linjerEl = document.getElementById('linjer');
+
+    function renderLinjer() {
+        linjerEl.innerHTML = state.linjer.map((li, i) => {
+            const t = TYPER[li.type] || TYPER.kolli;
+            const laast = t.l != null;
+            const opts = Object.keys(TYPER).map(k => '<option value="' + k + '"' + (k === li.type ? ' selected' : '') + '>' + TYPER[k].navn + '</option>').join('');
+            return '<div class="linje" data-idx="' + i + '">' +
+                '<div class="nr num">' + (i + 1) + '</div>' +
+                '<label class="felt f-type"><span class="felt-lbl">Type</span><select data-f="type">' + opts + '</select></label>' +
+                '<label class="felt"><span class="felt-lbl">Antal</span><input type="text" inputmode="numeric" data-f="antal" value="' + esc(fmtInput(li.antal)) + '"></label>' +
+                '<label class="felt"><span class="felt-lbl">Længde m</span><input type="text" inputmode="decimal" data-f="l" value="' + esc(fmtInput(laast ? t.l : li.l)) + '"' + (laast ? ' disabled' : '') + '></label>' +
+                '<label class="felt"><span class="felt-lbl">Bredde m</span><input type="text" inputmode="decimal" data-f="b" value="' + esc(fmtInput(laast ? t.b : li.b)) + '"' + (laast ? ' disabled' : '') + '></label>' +
+                '<label class="felt"><span class="felt-lbl">Højde m</span><input type="text" inputmode="decimal" data-f="h" value="' + esc(fmtInput(li.h)) + '"></label>' +
+                '<label class="felt f-vaegt"><span class="felt-lbl">Vægt kg/stk</span><input type="text" inputmode="decimal" data-f="vaegt" value="' + esc(fmtInput(li.vaegt)) + '"></label>' +
+                '<div class="fjern"><button class="btn btn-ghost" type="button" data-fjern="' + i + '" aria-label="Fjern linje ' + (i + 1) + '">Fjern</button></div>' +
+                '<div class="stabling">' +
+                    '<label class="check"><input type="checkbox" data-f="stabelbar"' + (li.stabelbar ? ' checked' : '') + '><span>Stabelbar</span></label>' +
+                    '<label class="felt"><span class="felt-lbl">Maks. antal lag</span><input type="text" inputmode="numeric" data-f="maksLag" value="' + esc(fmtInput(li.maksLag)) + '"' + (li.stabelbar ? '' : ' disabled') + '></label>' +
+                '</div>' +
+            '</div>';
+        }).join('');
+    }
+
+    linjerEl.addEventListener('input', e => {
+        const el = e.target;
+        const f = el.dataset.f;
+        if (!f || el.type === 'checkbox' || el.tagName === 'SELECT') return;
+        const li = state.linjer[+el.closest('.linje').dataset.idx];
+        li[f] = el.value;
+        renderResultat();
+    });
+    linjerEl.addEventListener('change', e => {
+        const el = e.target;
+        const f = el.dataset.f;
+        if (!f) return;
+        const li = state.linjer[+el.closest('.linje').dataset.idx];
+        if (el.type === 'checkbox') { li[f] = el.checked; renderLinjer(); }
+        else if (el.tagName === 'SELECT') {
+            li.type = el.value;
+            const t = TYPER[li.type];
+            if (t.l != null) { li.l = t.l; li.b = t.b; }
+            renderLinjer();
+        }
+        renderResultat();
+    });
+    linjerEl.addEventListener('click', e => {
+        const btn = e.target.closest('[data-fjern]');
+        if (!btn) return;
+        state.linjer.splice(+btn.dataset.fjern, 1);
+        if (state.linjer.length === 0) state.linjer.push(nyLinje());
+        renderLinjer();
+        renderResultat();
+    });
+
+    function nyLinje() {
+        return { type: 'eur', antal: 1, l: 1.2, b: 0.8, h: 1.0, vaegt: 300, stabelbar: false, maksLag: 2 };
+    }
+
+    document.getElementById('tilfoej').addEventListener('click', () => {
+        state.linjer.push(nyLinje());
+        renderLinjer();
+        renderResultat();
+        const sidste = linjerEl.querySelector('.linje:last-child input[data-f="antal"]');
+        if (sidste) sidste.focus();
+    });
+
+    document.querySelectorAll('[data-eks]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            state.linjer = EKSEMPLER[btn.dataset.eks].map(x => Object.assign({}, x));
+            renderLinjer();
+            renderResultat();
+        });
+    });
+
+    /* ---------- DOM: faner ---------- */
+
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            state.mode = tab.dataset.mode;
+            document.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-selected', t === tab ? 'true' : 'false'));
+            document.body.dataset.mode = state.mode;
+            fyldEnheder();
+            renderResultat();
+        });
+    });
+
+    /* ---------- DOM: metode og indstillinger ---------- */
+
+    document.querySelectorAll('input[name="ldmMetode"]').forEach(r => {
+        r.addEventListener('change', () => { state.s.ldmMetode = r.value; renderResultat(); });
+    });
+    document.getElementById('fuldHoejde').addEventListener('change', e => {
+        state.s.fuldHoejde = e.target.checked;
+        renderResultat();
+    });
+
+    const setInputs = document.querySelectorAll('[data-set]');
+    function renderIndstillinger() {
+        setInputs.forEach(inp => { inp.value = fmtInput(state.s[inp.dataset.set]); });
+    }
+    setInputs.forEach(inp => {
+        inp.addEventListener('input', () => {
+            const v = tal(inp.value);
+            if (v > 0) state.s[inp.dataset.set] = v;
+            renderResultat();
+        });
+    });
+    document.getElementById('nulstil').addEventListener('click', () => {
+        Object.assign(state.s, STANDARD);
+        renderIndstillinger();
+        renderResultat();
+    });
+
+    /* ---------- DOM: pris ---------- */
+
+    const prisEnhed = document.getElementById('prisEnhed');
+    const prisTarif = document.getElementById('prisTarif');
+    const prisValuta = document.getElementById('prisValuta');
+    const prisKurs = document.getElementById('prisKurs');
+    const kursFelt = document.getElementById('kursFelt');
+    const kursLbl = document.getElementById('kursLbl');
+
+    function fyldEnheder() {
+        prisEnhed.innerHTML = ENHEDER[state.mode].map(e => '<option value="' + e.v + '">' + e.t + '</option>').join('');
+        state.pris.enhed = ENHEDER[state.mode][0].v;
+    }
+    prisEnhed.addEventListener('change', () => { state.pris.enhed = prisEnhed.value; renderResultat(); });
+    prisTarif.addEventListener('input', () => { state.pris.tarif = prisTarif.value; renderResultat(); });
+    prisKurs.addEventListener('input', () => { state.pris.kurs = prisKurs.value; renderResultat(); });
+    prisValuta.addEventListener('change', () => {
+        state.pris.valuta = prisValuta.value;
+        kursFelt.hidden = state.pris.valuta === 'DKK';
+        kursLbl.textContent = 'Kurs (DKK pr. 1 ' + state.pris.valuta + ')';
+        renderResultat();
+    });
+
+    /* ---------- DOM: resultat ---------- */
+
+    const advarslerEl = document.getElementById('advarsler');
+    const linjetabelEl = document.getElementById('linjetabel');
+    const resultaterEl = document.getElementById('resultater');
+    const resultatCap = document.getElementById('resultat-cap');
+    const metodeWrap = document.getElementById('metode-wrap');
+    const prisResultatEl = document.getElementById('prisResultat');
+    const lastCard = document.getElementById('last-card');
+    const svgWrap = document.getElementById('svgWrap');
+    const barsEl = document.getElementById('bars');
+
+    function renderResultat() {
+        const mode = state.mode;
+        const res = beregn(state.linjer, state.s, mode);
+
+        metodeWrap.hidden = mode !== 'vej';
+        lastCard.hidden = mode !== 'vej';
+        resultatCap.textContent = mode === 'vej'
+            ? 'Vejgods: den højeste af volumen og omregnet vægt, vist i tre afregningsenheder'
+            : mode === 'luft' ? 'Luftfragt: den højeste af faktisk vægt og volumenvægt'
+            : 'Søfragt LCL: Weight or Measurement, den højeste af CBM og vægt i ton';
+
+        // Advarsler
+        advarslerEl.innerHTML = res.advarsler.length
+            ? '<div class="callout"><ul>' + res.advarsler.map(a => '<li>' + esc(a) + '</li>').join('') + '</ul></div>'
+            : '';
+
+        // Linjetabel
+        linjetabelEl.innerHTML = mode === 'vej' ? tabelVej(res) : tabelVolumen(res);
+
+        // Resultatkort
+        resultaterEl.innerHTML = res.kort.map(k => kortHtml(k, res)).join('');
+
+        // Pris
+        renderPris(res);
+
+        // Lastbillede
+        if (mode === 'vej') renderLast(res);
+    }
+
+    function tabelVej(res) {
+        const metode = state.s.ldmMetode;
+        const rows = res.linjer.map((r, i) => {
+            const arealKl = r.metodeBrugt === 'areal' ? 'brugt' : (r.ldmAreal === r.ldmPalle ? '' : 'dim');
+            const palleKl = r.metodeBrugt === 'palle' ? 'brugt' : (r.ldmAreal === r.ldmPalle ? '' : 'dim');
+            return '<tr>' +
+                '<td>' + (i + 1) + '. ' + esc(r.navn) + '</td>' +
+                '<td>' + r.antal + '</td>' +
+                '<td>' + r.lag + '</td>' +
+                '<td>' + r.gulvpladser + '</td>' +
+                '<td class="' + arealKl + '">' + fmt(r.ldmAreal, 2) + '</td>' +
+                '<td class="' + palleKl + '">' + fmt(r.ldmPalle, 2) + '</td>' +
+                '<td class="brugt">' + fmt(r.ldm, 2) + '</td>' +
+                '<td' + (r.fuldHoejde ? ' title="Afregnet til fuld lastehøjde"' : '') + '>' + fmt(r.cbmAfregnet, 2) + (r.fuldHoejde ? '<span class="cap"> *</span>' : '') + '</td>' +
+                '<td>' + fmt(r.vaegt, 0) + '</td>' +
+            '</tr>';
+        }).join('');
+        const t = res.tot;
+        const fodnote = res.linjer.some(r => r.fuldHoejde)
+            ? '<p class="cap" style="margin-top:8px;">* Ikke-stabelbart gods afregnet til fuld lastehøjde på ' + fmt(state.s.lasteH, 2) + ' m. Faktisk volumen: ' + fmt(t.cbm, 2) + ' CBM.</p>'
+            : '';
+        return '<table>' +
+            '<thead><tr><th>Linje</th><th>Antal</th><th>Lag</th><th>Gulvpladser</th><th>LDM pr. plads, areal</th><th>LDM pr. plads, pallepladser</th><th>LDM i alt</th><th>CBM</th><th>Vægt kg</th></tr></thead>' +
+            '<tbody>' + rows + '</tbody>' +
+            '<tfoot><tr><td>Sending</td><td>' + t.antal + '</td><td></td><td>' + t.gulvpladser + '</td><td></td><td></td><td>' + fmt(t.ldm, 2) + '</td><td>' + fmt(t.cbmAfregnet, 2) + '</td><td>' + fmt(t.vaegt, 0) + '</td></tr></tfoot>' +
+        '</table>' + fodnote +
+        (metode === 'max' ? '<p class="cap" style="margin-top:4px;">Fed: den metode der er anvendt for linjen. Grå: den lavere af de to.</p>' : '');
+    }
+
+    function tabelVolumen(res) {
+        const luft = res.mode === 'luft';
+        const rows = res.linjer.map((r, i) =>
+            '<tr>' +
+                '<td>' + (i + 1) + '. ' + esc(r.navn) + '</td>' +
+                '<td>' + r.antal + '</td>' +
+                '<td>' + fmt(r.l, 2) + ' × ' + fmt(r.b, 2) + ' × ' + fmt(r.h, 2) + '</td>' +
+                '<td>' + fmt(r.cbm, 3) + '</td>' +
+                (luft ? '<td>' + fmt(r.cbm * state.s.luftFaktor, 1) + '</td>' : '') +
+                '<td>' + fmt(r.vaegt, luft ? 1 : 0) + '</td>' +
+            '</tr>').join('');
+        const t = res.tot;
+        return '<table>' +
+            '<thead><tr><th>Linje</th><th>Antal</th><th>Mål m</th><th>CBM</th>' + (luft ? '<th>Volumenvægt kg</th>' : '') + '<th>Vægt kg</th></tr></thead>' +
+            '<tbody>' + rows + '</tbody>' +
+            '<tfoot><tr><td>Sending</td><td>' + t.antal + '</td><td></td><td>' + fmt(t.cbm, 3) + '</td>' + (luft ? '<td>' + fmt(t.cbm * state.s.luftFaktor, 1) + '</td>' : '') + '<td>' + fmt(t.vaegt, luft ? 1 : 0) + '</td></tr></tfoot>' +
+        '</table>';
+    }
+
+    function kortHtml(k, res) {
+        const dec = k.enhed === 'kg' ? 1 : 2;
+        const volLbl = k.volumenLabel || ('1. Volumen');
+        const vaegtLbl = k.vaegtLabel || ('2. Vægt ÷ ' + fmt(k.faktor, k.faktor % 1 ? 2 : 0));
+        const vol = res.mode === 'luft' ? fmt(k.volumen, 1) + ' kg' : fmt(k.volumen, dec) + ' ' + k.kort;
+        const vgt = res.mode === 'luft' ? fmt(k.vaegt, 1) + ' kg' : fmt(k.vaegtOmregnet, dec) + ' ' + k.kort;
+        let note = '';
+        if (k.afrundet) note = '<div class="cap">Rundet op til nærmeste 0,5 kg.</div>';
+        if (k.minimum) note = '<div class="cap">Minimum 1 W/M anvendt.</div>';
+        return '<div class="result">' +
+            '<div class="r-title">' + esc(k.titel) + '</div>' +
+            '<div class="r-rows">' +
+                '<div class="r-row"><span class="r-lbl">' + esc(volLbl) + '</span><span class="r-val' + (k.vinder === 'volumen' ? ' vinder' : '') + '">' + vol + '</span></div>' +
+                '<div class="r-row"><span class="r-lbl">' + esc(vaegtLbl) + '</span><span class="r-val' + (k.vinder === 'vaegt' ? ' vinder' : '') + '">' + vgt + '</span></div>' +
+            '</div>' +
+            '<div class="r-lbl">3. Fragtpligtig (højeste)</div>' +
+            '<div class="big">' + fmt(k.fragtpligtig, dec) + '<small>' + k.kort + '</small></div>' +
+            note +
+            '<div class="pris-line" data-pris="' + k.enhed + '"></div>' +
+        '</div>';
+    }
+
+    function renderPris(res) {
+        const p = beregnPris(res, state.pris);
+        document.querySelectorAll('.pris-line').forEach(el => { el.innerHTML = ''; el.hidden = true; });
+        if (!p) {
+            prisResultatEl.innerHTML = '<p class="cap">Indtast en tarif for at se prisen.</p>';
+            return;
+        }
+        const dec = p.kort.enhed === 'kg' ? 1 : 2;
+        let html = '<div class="callout neutral">' +
+            '<div><strong>4. Pris:</strong> ' + fmt(p.kort.fragtpligtig, dec) + ' ' + p.kort.kort + ' × ' + fmt(p.tarif, 2) + ' ' + p.valuta + ' = <strong>' + fmt(p.beloeb, 2) + ' ' + p.valuta + '</strong></div>';
+        if (p.valuta !== 'DKK') {
+            html += p.kursMangler
+                ? '<div class="cap">Udfyld kursen for at se prisen i DKK.</div>'
+                : '<div>I danske kroner: ' + fmt(p.beloeb, 2) + ' × ' + fmt(tal(state.pris.kurs), 4) + ' = <strong>' + fmt(p.beloebDKK, 2) + ' DKK</strong></div>';
+        }
+        html += '</div>';
+        prisResultatEl.innerHTML = html;
+        if (p.kursMangler) {
+            advarslerEl.innerHTML += '<div class="callout" style="margin-top:8px;"><ul><li>Kurs mangler: prisen i ' + esc(p.valuta) + ' kan ikke omregnes til DKK.</li></ul></div>';
+        }
+        const line = document.querySelector('.pris-line[data-pris="' + p.kort.enhed + '"]');
+        if (line) {
+            line.hidden = false;
+            line.innerHTML = '4. Pris: <strong>' + fmt(p.beloeb, 2) + ' ' + p.valuta + '</strong>' +
+                (p.beloebDKK != null && p.valuta !== 'DKK' ? ' <span class="cap">(' + fmt(p.beloebDKK, 2) + ' DKK)</span>' : '');
+        }
+    }
+
+    /* ---------- Lastbillede ---------- */
+
+    function pakGulv(res, s) {
+        const placeringer = [];
+        let x = 0, hyldeL = 0, brugtB = 0;
+        res.linjer.forEach((r, i) => {
+            for (let k = 0; k < r.gulvpladser; k++) {
+                if (hyldeL === 0 || brugtB + r.fodB > s.trailerB + 1e-9) {
+                    x += hyldeL;
+                    hyldeL = r.fodL;
+                    brugtB = 0;
+                }
+                placeringer.push({ x, y: brugtB, w: r.fodL, h: r.fodB, aktL: r.L, aktB: r.B, linje: i, lag: r.lag });
+                brugtB += r.fodB;
+                hyldeL = Math.max(hyldeL, r.fodL);
+            }
+        });
+        return placeringer;
+    }
+
+    function renderLast(res) {
+        const s = state.s;
+        const sc = 56;
+        const pad = 16;
+        const W = s.trailerL * sc, H = s.trailerB * sc;
+        const vbW = W + pad * 2, vbH = H + pad * 2 + 20;
+        const pl = pakGulv(res, s);
+
+        let g = '';
+        for (let xm = s.pladsL; xm < s.trailerL - 1e-9; xm += s.pladsL) {
+            g += '<line x1="' + (pad + xm * sc) + '" y1="' + pad + '" x2="' + (pad + xm * sc) + '" y2="' + (pad + H) + '" stroke="var(--line)" stroke-dasharray="3 3"/>';
+        }
+        for (let ym = s.pladsB; ym < s.trailerB - 1e-9; ym += s.pladsB) {
+            g += '<line x1="' + pad + '" y1="' + (pad + ym * sc) + '" x2="' + (pad + W) + '" y2="' + (pad + ym * sc) + '" stroke="var(--line)" stroke-dasharray="3 3"/>';
+        }
+
+        let items = '';
+        pl.forEach(p => {
+            const x = pad + p.x * sc, y = pad + p.y * sc;
+            const over = p.x + p.w > s.trailerL + 1e-9;
+            const reserveret = p.w > p.aktL + 1e-9 || p.h > p.aktB + 1e-9;
+            if (reserveret) {
+                items += '<rect x="' + x + '" y="' + y + '" width="' + (p.w * sc) + '" height="' + (p.h * sc) + '" fill="var(--fill-1)" stroke="var(--ink-3)" stroke-dasharray="4 3"/>';
+            }
+            const ax = x + Math.max(0, (p.w - p.aktL) * sc / 2);
+            const ay = y + Math.max(0, (p.h - p.aktB) * sc / 2);
+            items += '<rect x="' + ax + '" y="' + ay + '" width="' + (p.aktL * sc) + '" height="' + (p.aktB * sc) + '" fill="' + (over ? 'var(--accent-wash)' : 'var(--fill-2)') + '" stroke="' + (over ? 'var(--accent)' : 'var(--ink-2)') + '"/>';
+            const lbl = (p.linje + 1) + (p.lag > 1 ? ' ×' + p.lag : '');
+            if (p.aktB * sc >= 14 || p.aktL * sc >= 40) {
+                items += '<text x="' + (x + p.w * sc / 2) + '" y="' + (y + p.h * sc / 2) + '" font-size="11" font-family="Inter, system-ui, sans-serif" fill="var(--ink)" text-anchor="middle" dominant-baseline="middle">' + lbl + '</text>';
+            }
+        });
+
+        let akse = '';
+        for (let m = 0; m <= s.trailerL + 1e-9; m += 2) {
+            akse += '<text x="' + (pad + m * sc) + '" y="' + (pad + H + 16) + '" font-size="10" font-family="Inter, system-ui, sans-serif" fill="var(--ink-3)" text-anchor="middle">' + fmt(m, 0) + ' m</text>';
+        }
+
+        svgWrap.innerHTML = '<svg viewBox="0 0 ' + vbW + ' ' + vbH + '" role="img" aria-label="Lastbillede af trailerens gulv">' +
+            '<rect x="' + pad + '" y="' + pad + '" width="' + W + '" height="' + H + '" fill="var(--surface)" stroke="var(--ink)"/>' +
+            g + items + akse + '</svg>';
+
+        const t = res.tot;
+        const ldmPct = Math.min(100, t.ldm / s.trailerL * 100);
+        const kgPct = Math.min(100, t.vaegt / s.maksVaegt * 100);
+        barsEl.innerHTML =
+            '<div class="bar' + (t.ldm > s.trailerL + 1e-9 ? ' over' : '') + '"><div class="track"><div class="fill" style="width:' + ldmPct + '%"></div></div><span class="bar-lbl">' + fmt(t.ldm, 2) + ' af ' + fmt(s.trailerL, 1) + ' LDM</span></div>' +
+            '<div class="bar' + (t.vaegt > s.maksVaegt + 1e-9 ? ' over' : '') + '"><div class="track"><div class="fill" style="width:' + kgPct + '%"></div></div><span class="bar-lbl">' + fmt(t.vaegt, 0) + ' af ' + fmt(s.maksVaegt, 0) + ' kg</span></div>';
+    }
+
+    /* ---------- Start ---------- */
+
+    fyldEnheder();
+    renderIndstillinger();
+    renderLinjer();
+    renderResultat();
+
+    // Til test fra konsol eller script
+    window.FV = { beregn, beregnPris, TYPER, STANDARD, tal };
+})();
+</script>
+</body>
+</html>

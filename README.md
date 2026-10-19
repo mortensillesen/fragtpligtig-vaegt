@@ -11,4 +11,6 @@ Indhold:
 
 Siden er én selvstændig HTML-fil uden eksterne afhængigheder.
 
+**Beregner:** `fragtpligtig-vaegt_beregner_v1.html` er en selvstændig beregner til fragtpligtig vægt med dimensioner, EUR- og industripaller, stabling, lademeter efter areal eller optagne pallepladser samt pris i DKK, EUR eller USD.
+
 **Live:** https://mortensillesen.github.io/fragtpligtig-vaegt/
