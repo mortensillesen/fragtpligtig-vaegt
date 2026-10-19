@@ -183,7 +183,20 @@
         border-bottom: 1px solid var(--line);
     }
     .linje:last-child { border-bottom: none; }
-    .linje .nr { font-size: var(--text-cap); color: var(--ink-3); padding-bottom: 9px; }
+    .linje .nr { font-size: var(--text-cap); color: var(--ink-3); padding-bottom: 6px; display: grid; gap: 6px; justify-items: start; }
+    .handle {
+        width: 14px;
+        height: 11px;
+        cursor: grab;
+        background: repeating-linear-gradient(to bottom, var(--ink-3) 0 2px, transparent 2px 4.5px);
+        transition: background 150ms ease;
+    }
+    .handle:hover { background: repeating-linear-gradient(to bottom, var(--ink) 0 2px, transparent 2px 4.5px); }
+    .linje.traekkes { opacity: 0.4; }
+    .linje.slip-over { border-top: 2px solid var(--accent); padding-top: 7px; }
+    .linje.slip-under { border-bottom: 2px solid var(--accent); }
+    .linje .fjern { display: flex; gap: 2px; }
+    .btn-ghost:disabled { color: var(--ink-3); opacity: 0.5; cursor: default; }
     .linje .stabling { grid-column: 2 / 8; display: flex; gap: var(--space-2); align-items: center; flex-wrap: wrap; }
     .linje .stabling .felt { width: 110px; }
     .linje .fjern { padding-bottom: 2px; }
@@ -344,7 +357,7 @@
         <div class="linjer" id="linjer"></div>
         <div class="btn-row">
             <button class="btn" type="button" id="tilfoej">Tilføj linje</button>
-            <span class="cap">Mål i meter, vægt i kg pr. stk. Pallehøjde er samlet højde inkl. pallen. Ens kolli skrives på samme linje med antal, så de pakkes side om side.</span>
+            <span class="cap">Mål i meter, vægt i kg pr. stk. Pallehøjde er samlet højde inkl. pallen. Ens kolli skrives på samme linje med antal, så de pakkes side om side. Rækkefølgen afgør pakningen: træk i håndtaget eller brug Op og Ned.</span>
         </div>
     </section>
 
@@ -666,14 +679,18 @@
             const laast = t.l != null;
             const opts = Object.keys(TYPER).map(k => '<option value="' + k + '"' + (k === li.type ? ' selected' : '') + '>' + TYPER[k].navn + '</option>').join('');
             return '<div class="linje" data-idx="' + i + '">' +
-                '<div class="nr num">' + (i + 1) + '</div>' +
+                '<div class="nr num"><span>' + (i + 1) + '</span><span class="handle" draggable="true" title="Træk for at ændre rækkefølgen" aria-hidden="true"></span></div>' +
                 '<label class="felt f-type"><span class="felt-lbl">Type</span><select data-f="type">' + opts + '</select></label>' +
                 '<label class="felt"><span class="felt-lbl">Antal</span><input type="text" inputmode="numeric" data-f="antal" value="' + esc(fmtInput(li.antal)) + '"></label>' +
                 '<label class="felt"><span class="felt-lbl">Længde m</span><input type="text" inputmode="decimal" data-f="l" value="' + esc(fmtInput(laast ? t.l : li.l)) + '"' + (laast ? ' disabled' : '') + '></label>' +
                 '<label class="felt"><span class="felt-lbl">Bredde m</span><input type="text" inputmode="decimal" data-f="b" value="' + esc(fmtInput(laast ? t.b : li.b)) + '"' + (laast ? ' disabled' : '') + '></label>' +
                 '<label class="felt"><span class="felt-lbl">Højde m</span><input type="text" inputmode="decimal" data-f="h" value="' + esc(fmtInput(li.h)) + '"></label>' +
                 '<label class="felt f-vaegt"><span class="felt-lbl">Vægt kg/stk</span><input type="text" inputmode="decimal" data-f="vaegt" value="' + esc(fmtInput(li.vaegt)) + '"></label>' +
-                '<div class="fjern"><button class="btn btn-ghost" type="button" data-fjern="' + i + '" aria-label="Fjern linje ' + (i + 1) + '">Fjern</button></div>' +
+                '<div class="fjern">' +
+                    '<button class="btn btn-ghost" type="button" data-flyt="-1" aria-label="Flyt linje ' + (i + 1) + ' op"' + (i === 0 ? ' disabled' : '') + '>Op</button>' +
+                    '<button class="btn btn-ghost" type="button" data-flyt="1" aria-label="Flyt linje ' + (i + 1) + ' ned"' + (i === state.linjer.length - 1 ? ' disabled' : '') + '>Ned</button>' +
+                    '<button class="btn btn-ghost" type="button" data-fjern="' + i + '" aria-label="Fjern linje ' + (i + 1) + '">Fjern</button>' +
+                '</div>' +
                 '<div class="stabling">' +
                     '<label class="check"><input type="checkbox" data-f="stabelbar"' + (li.stabelbar ? ' checked' : '') + '><span>Stabelbar</span></label>' +
                     '<label class="felt"><span class="felt-lbl">Maks. antal lag</span><input type="text" inputmode="numeric" data-f="maksLag" value="' + esc(fmtInput(li.maksLag)) + '"' + (li.stabelbar ? '' : ' disabled') + '></label>' +
@@ -705,12 +722,72 @@
         renderResultat();
     });
     linjerEl.addEventListener('click', e => {
+        const flyt = e.target.closest('[data-flyt]');
+        if (flyt) {
+            const fra = +flyt.closest('.linje').dataset.idx;
+            flytLinje(fra, fra + (+flyt.dataset.flyt));
+            const igen = linjerEl.querySelector('.linje[data-idx="' + (fra + (+flyt.dataset.flyt)) + '"] [data-flyt="' + flyt.dataset.flyt + '"]');
+            if (igen && !igen.disabled) igen.focus();
+            return;
+        }
         const btn = e.target.closest('[data-fjern]');
         if (!btn) return;
         state.linjer.splice(+btn.dataset.fjern, 1);
         if (state.linjer.length === 0) state.linjer.push(nyLinje());
         renderLinjer();
         renderResultat();
+    });
+
+    function flytLinje(fra, til) {
+        if (til < 0 || til >= state.linjer.length || fra === til) return;
+        const [li] = state.linjer.splice(fra, 1);
+        state.linjer.splice(til, 0, li);
+        renderLinjer();
+        renderResultat();
+    }
+
+    // Træk og slip af hele linjer via håndtaget
+    let traekFra = null;
+    linjerEl.addEventListener('dragstart', e => {
+        if (!e.target.classList || !e.target.classList.contains('handle')) { e.preventDefault(); return; }
+        const row = e.target.closest('.linje');
+        traekFra = +row.dataset.idx;
+        row.classList.add('traekkes');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', String(traekFra));
+        e.dataTransfer.setDragImage(row, 20, 20);
+    });
+    linjerEl.addEventListener('dragover', e => {
+        if (traekFra === null) return;
+        const row = e.target.closest('.linje');
+        if (!row) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        const r = row.getBoundingClientRect();
+        const under = e.clientY > r.top + r.height / 2;
+        linjerEl.querySelectorAll('.slip-over, .slip-under').forEach(el => el.classList.remove('slip-over', 'slip-under'));
+        if (+row.dataset.idx !== traekFra) row.classList.add(under ? 'slip-under' : 'slip-over');
+    });
+    linjerEl.addEventListener('dragleave', e => {
+        const row = e.target.closest && e.target.closest('.linje');
+        if (row && !row.contains(e.relatedTarget)) row.classList.remove('slip-over', 'slip-under');
+    });
+    linjerEl.addEventListener('drop', e => {
+        if (traekFra === null) return;
+        const row = e.target.closest('.linje');
+        if (!row) return;
+        e.preventDefault();
+        const r = row.getBoundingClientRect();
+        const under = e.clientY > r.top + r.height / 2;
+        let til = +row.dataset.idx + (under ? 1 : 0);
+        if (til > traekFra) til -= 1;
+        const fra = traekFra;
+        traekFra = null;
+        flytLinje(fra, til);
+    });
+    linjerEl.addEventListener('dragend', () => {
+        traekFra = null;
+        linjerEl.querySelectorAll('.traekkes, .slip-over, .slip-under').forEach(el => el.classList.remove('traekkes', 'slip-over', 'slip-under'));
     });
 
     function nyLinje() {
