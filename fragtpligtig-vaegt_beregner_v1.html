@@ -338,8 +338,7 @@
 
     <section class="card">
         <div class="prose">
-            <p>Indtast godset linje for linje. Beregneren finder volumen i den relevante enhed, omregner vægten med branchens standardfaktorer og vælger den højeste af de to. Det er de fire trin fra undervisningsforløbet, bare udført af maskinen.</p>
-            <p>Tallene på siden er et eksempel. Ret dem, eller vælg et af de færdige eksempler.</p>
+            <p>Indtast godset linje for linje. Beregneren finder volumen i den relevante enhed, omregner vægten med branchens standardfaktorer og vælger den højeste af de to.</p>
         </div>
         <div class="tabs" role="tablist" aria-label="Transportform">
             <button class="tab" role="tab" type="button" data-mode="vej" aria-selected="true">Vejgods</button>
@@ -351,12 +350,6 @@
     <section class="card">
         <div class="card-head">
             <h2>Gods</h2>
-            <div class="btn-row">
-                <span class="cap">Eksempler</span>
-                <button class="btn btn-ghost" type="button" data-eks="paller">10 EUR-paller</button>
-                <button class="btn btn-ghost" type="button" data-eks="roer">Langt rør 6 m</button>
-                <button class="btn btn-ghost" type="button" data-eks="blandet">Blandet sending</button>
-            </div>
         </div>
         <div class="linjer" id="linjer"></div>
         <div class="btn-row">
@@ -418,7 +411,7 @@
     <section class="card" id="last-card">
         <div class="card-head">
             <h2 id="lastTitel">Lastplan</h2>
-            <span class="cap" id="lastCap">Trailerens gulv set fra oven. Stiplet ramme er den længde et kolli blokerer i pallepladser.</span>
+            <span class="cap" id="lastCap">Trailerens gulv set fra oven. Gitteret er EUR-pallepladser på 1,2 × 0,8 m.</span>
         </div>
         <div class="btn-row" role="radiogroup" aria-label="Container" id="containerValg" hidden>
             <span class="cap">Container</span>
@@ -508,20 +501,6 @@
             ? { navn: "20' container", kort: '20\'', L: s.c20L, B: s.c20B, H: s.c20H, kg: s.c20Kg }
             : { navn: "40' container", kort: '40\'', L: s.c40L, B: s.c40B, H: s.c40H, kg: s.c40Kg };
     }
-
-    const EKSEMPLER = {
-        paller: [
-            { type: 'eur', antal: 10, l: 1.2, b: 0.8, h: 1.2, vaegt: 590, stabelbar: false, maksLag: 2 }
-        ],
-        roer: [
-            { type: 'kolli', antal: 1, l: 6.0, b: 0.2, h: 0.2, vaegt: 180, stabelbar: false, maksLag: 2 }
-        ],
-        blandet: [
-            { type: 'eur', antal: 6, l: 1.2, b: 0.8, h: 1.2, vaegt: 420, stabelbar: true, maksLag: 2 },
-            { type: 'industri', antal: 2, l: 1.2, b: 1.0, h: 1.6, vaegt: 650, stabelbar: false, maksLag: 2 },
-            { type: 'kolli', antal: 1, l: 6.0, b: 0.2, h: 0.2, vaegt: 180, stabelbar: false, maksLag: 2 }
-        ]
-    };
 
     const ENHEDER = {
         vej:  [ { v: 'ldm', t: 'pr. LDM' }, { v: 'cbm', t: 'pr. CBM' }, { v: 'pll', t: 'pr. EUR-palle' } ],
@@ -707,7 +686,7 @@
 
     const state = {
         mode: 'vej',
-        linjer: EKSEMPLER.blandet.map(x => Object.assign({}, x)),
+        linjer: [],
         s: Object.assign({ ldmMetode: 'max', fuldHoejde: true, pakning: 'auto', container: 'c40' }, STANDARD),
         pris: { enhed: 'ldm', tarif: '', valuta: 'DKK', kurs: '' }
     };
@@ -843,14 +822,6 @@
         renderResultat();
         const sidste = linjerEl.querySelector('.linje:last-child input[data-f="antal"]');
         if (sidste) sidste.focus();
-    });
-
-    document.querySelectorAll('[data-eks]').forEach(btn => {
-        btn.addEventListener('click', () => {
-            state.linjer = EKSEMPLER[btn.dataset.eks].map(x => Object.assign({}, x));
-            renderLinjer();
-            renderResultat();
-        });
     });
 
     /* ---------- DOM: faner ---------- */
@@ -1217,12 +1188,6 @@
         let items = '';
         t.enheder.forEach(e => {
             const x = pad + e.x * sc, y = pad + e.y * sc;
-            if (e.reserver) {
-                const resL = Math.min(boks.L - e.x, Math.ceil(e.l / s.pladsL - 1e-9) * s.pladsL);
-                if (resL > e.l + 1e-9) {
-                    items += '<rect x="' + x + '" y="' + y + '" width="' + (resL * sc) + '" height="' + (e.b * sc) + '" fill="var(--fill-1)" stroke="var(--ink-3)" stroke-dasharray="4 3"/>';
-                }
-            }
             items += '<rect x="' + x + '" y="' + y + '" width="' + (e.l * sc) + '" height="' + (e.b * sc) + '" fill="var(--fill-2)" stroke="var(--ink-2)"/>';
             const lbl = (e.linje + 1) + (e.lag > 1 ? ' ×' + e.lag : '');
             if (e.b * sc >= 14 || e.l * sc >= 40) {
@@ -1268,7 +1233,7 @@
         const n = plan.trailere.length;
 
         document.getElementById('lastTitel').textContent = soe ? 'Containerplan' : 'Lastplan';
-        document.getElementById('lastCap').textContent = (soe ? 'Containerens' : 'Trailerens') + ' gulv set fra oven. Stiplet ramme er den længde et kolli blokerer i pallepladser.';
+        document.getElementById('lastCap').textContent = (soe ? 'Containerens' : 'Trailerens') + ' gulv set fra oven. Gitteret er EUR-pallepladser på 1,2 × 0,8 m.';
         document.getElementById('containerValg').hidden = !soe;
 
         const tael = {};
@@ -1302,6 +1267,8 @@
     }
 
     /* ---------- Start ---------- */
+
+    state.linjer = [nyLinje()];
 
     fyldEnheder();
     renderIndstillinger();
