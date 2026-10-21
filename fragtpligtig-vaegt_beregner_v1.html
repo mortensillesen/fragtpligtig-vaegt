@@ -172,6 +172,22 @@
     input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); width: 16px; height: 16px; cursor: pointer; }
     .check { display: flex; align-items: center; gap: var(--space-1); font-size: 15px; cursor: pointer; }
 
+    /* Kunder */
+    .kunde { border: 1px solid var(--line); border-radius: var(--radius); padding: var(--space-2); display: grid; gap: var(--space-1); margin-bottom: var(--space-2); }
+    .kunde-head { display: flex; gap: var(--space-2); align-items: flex-end; flex-wrap: wrap; padding-bottom: var(--space-1); border-bottom: 1px solid var(--line); }
+    .kunde-head .kunde-navn { flex: 1 1 180px; max-width: 360px; }
+    .kunde-head .fjern { display: flex; gap: 2px; padding-bottom: 2px; }
+    .farve { display: inline-block; width: 12px; height: 12px; border: 1px solid; vertical-align: middle; margin-right: 8px; border-radius: var(--radius); }
+    .kunde-bogstav { font-weight: 600; padding-bottom: 8px; }
+    .kunde-res { display: grid; gap: var(--space-2); padding-top: var(--space-2); border-top: 1px solid var(--line); }
+    .kunde-res h3, .pris-kunde h3 { display: block; }
+    .pris-kunde { display: grid; gap: var(--space-2); padding-top: var(--space-2); border-top: 1px solid var(--line); }
+    .pris-kunde:first-child, .kunde-res:first-child { border-top: none; padding-top: 0; }
+    .legend { display: flex; gap: var(--space-2); flex-wrap: wrap; font-size: 14px; }
+    .total { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--space-2); padding: var(--space-2); border: 1px solid var(--ink-3); border-radius: var(--radius); }
+    .total .t-lbl { font-size: var(--text-cap); color: var(--ink-3); }
+    .total .t-val { font-weight: 600; font-variant-numeric: tabular-nums; font-size: 18px; }
+
     /* Godslinjer */
     .linjer { display: grid; gap: var(--space-1); }
     .linje {
@@ -352,10 +368,11 @@
     <section class="card">
         <div class="card-head">
             <h2>Gods</h2>
+            <span class="cap">Ét afsnit pr. kunde. Ved samlast indtastes hver kundes gods for sig.</span>
         </div>
-        <div class="linjer" id="linjer"></div>
+        <div id="kunder"></div>
         <div class="btn-row">
-            <button class="btn" type="button" id="tilfoej">Tilføj linje</button>
+            <button class="btn" type="button" id="tilfoejKunde">Tilføj kunde</button>
             <span class="cap">Mål i meter, vægt i kg pr. stk. Pallehøjde er samlet højde inkl. pallen. Ens kolli skrives på samme linje med antal, så de pakkes side om side. Rækkefølgen afgør pakningen: træk i håndtaget eller brug Op og Ned.</span>
         </div>
     </section>
@@ -381,29 +398,17 @@
                 <span>Ikke-stabelbart gods afregnes til fuld lastehøjde i kubikmeter</span>
             </label>
         </div>
-        <div id="advarsler"></div>
-        <div class="table-wrap" id="linjetabel"></div>
-        <div class="result-grid" id="resultater"></div>
+        <div id="kundeResultater"></div>
+        <div id="totalResultat"></div>
     </section>
 
     <section class="card">
         <div class="card-head">
             <h2>Pris</h2>
-            <span class="cap">Trin 4: fragtpligtig vægt × tarif</span>
+            <span class="cap">Trin 4: fragtpligtig vægt × tarif, pr. kunde</span>
         </div>
-        <div class="pris-grid">
-            <label class="felt"><span class="felt-lbl">Afregningsenhed</span><select id="prisEnhed"></select></label>
-            <label class="felt"><span class="felt-lbl">Tarif pr. enhed</span><input type="text" inputmode="decimal" id="prisTarif" placeholder="fx 1600"></label>
-            <label class="felt"><span class="felt-lbl">Valuta</span>
-                <select id="prisValuta">
-                    <option value="DKK">DKK</option>
-                    <option value="EUR">EUR</option>
-                    <option value="USD">USD</option>
-                </select>
-            </label>
-            <label class="felt" id="kursFelt" hidden><span class="felt-lbl" id="kursLbl">Kurs (DKK pr. 1 EUR)</span><input type="text" inputmode="decimal" id="prisKurs" placeholder="udfyld"></label>
-        </div>
-        <div id="prisResultat"></div>
+        <div id="prisKunder"></div>
+        <div id="prisTotal"></div>
     </section>
 
     <section class="card" id="last-card">
@@ -420,8 +425,10 @@
         <div class="btn-row" role="radiogroup" aria-label="Pakning">
             <span class="cap">Pakning</span>
             <label class="check"><input type="radio" name="pakning" value="auto" checked><span>Automatisk: største kolli først, rotation, pakket på tværs af linjer</span></label>
-            <label class="check"><input type="radio" name="pakning" value="manuel"><span>Manuel: linjernes rækkefølge</span></label>
+            <label class="check"><input type="radio" name="pakning" value="manuel"><span>Manuel: kundernes og linjernes rækkefølge</span></label>
         </div>
+        <label class="check"><input type="checkbox" id="samlet" checked><span>Hold hver kundes gods samlet (losses typisk kunde for kunde)</span></label>
+        <div class="legend" id="legend"></div>
         <div id="lastOversigt"></div>
         <div id="trailere"></div>
         <div class="callout neutral">
@@ -683,145 +690,215 @@
 
     /* ---------- Tilstand ---------- */
 
+    // Dæmpede kundefarver der adskiller sig i lyshed, ikke kun i kulør
+    const KUNDEFARVER = [
+        { fill: '#DCD0B6', stroke: '#8C7B55' },
+        { fill: '#B9C7D6', stroke: '#4F6A86' },
+        { fill: '#CBD1A6', stroke: '#6F7A3E' },
+        { fill: '#E6BBA6', stroke: '#9A4E33' },
+        { fill: '#D1C4D6', stroke: '#6E5A78' },
+        { fill: '#B4CCBF', stroke: '#4A7059' }
+    ];
+    const farveFor = i => KUNDEFARVER[i % KUNDEFARVER.length];
+    const bogstav = i => String.fromCharCode(65 + (i % 26));
+    const farvePrik = i => '<span class="farve" style="background:' + farveFor(i).fill + ';border-color:' + farveFor(i).stroke + '"></span>';
+
     const state = {
         mode: 'vej',
-        linjer: [],
-        s: Object.assign({ ldmMetode: 'areal', fuldHoejde: true, pakning: 'auto', container: 'c40' }, STANDARD),
-        pris: { enhed: 'ldm', tarif: '', valuta: 'DKK', kurs: '' }
+        kunder: [],
+        s: Object.assign({ ldmMetode: 'areal', fuldHoejde: true, pakning: 'auto', container: 'c40', samlet: true }, STANDARD)
     };
-
-    /* ---------- DOM: godslinjer ---------- */
-
-    const linjerEl = document.getElementById('linjer');
-
-    function renderLinjer() {
-        linjerEl.innerHTML = state.linjer.map((li, i) => {
-            const t = TYPER[li.type] || TYPER.kolli;
-            const laast = t.l != null;
-            const opts = Object.keys(TYPER).map(k => '<option value="' + k + '"' + (k === li.type ? ' selected' : '') + '>' + TYPER[k].navn + '</option>').join('');
-            return '<div class="linje" data-idx="' + i + '">' +
-                '<div class="nr num"><span>' + (i + 1) + '</span><span class="handle" draggable="true" title="Træk for at ændre rækkefølgen" aria-hidden="true"></span></div>' +
-                '<label class="felt f-type"><span class="felt-lbl">Type</span><select data-f="type">' + opts + '</select></label>' +
-                '<label class="felt"><span class="felt-lbl">Antal</span><input type="text" inputmode="numeric" data-f="antal" value="' + esc(fmtInput(li.antal)) + '"></label>' +
-                '<label class="felt"><span class="felt-lbl">Længde m</span><input type="text" inputmode="decimal" data-f="l" value="' + esc(fmtInput(laast ? t.l : li.l)) + '"' + (laast ? ' disabled' : '') + '></label>' +
-                '<label class="felt"><span class="felt-lbl">Bredde m</span><input type="text" inputmode="decimal" data-f="b" value="' + esc(fmtInput(laast ? t.b : li.b)) + '"' + (laast ? ' disabled' : '') + '></label>' +
-                '<label class="felt"><span class="felt-lbl">Højde m</span><input type="text" inputmode="decimal" data-f="h" value="' + esc(fmtInput(li.h)) + '"></label>' +
-                '<label class="felt f-vaegt"><span class="felt-lbl">Vægt kg/stk</span><input type="text" inputmode="decimal" data-f="vaegt" value="' + esc(fmtInput(li.vaegt)) + '"></label>' +
-                '<div class="fjern">' +
-                    '<button class="btn btn-ghost" type="button" data-flyt="-1" aria-label="Flyt linje ' + (i + 1) + ' op"' + (i === 0 ? ' disabled' : '') + '>Op</button>' +
-                    '<button class="btn btn-ghost" type="button" data-flyt="1" aria-label="Flyt linje ' + (i + 1) + ' ned"' + (i === state.linjer.length - 1 ? ' disabled' : '') + '>Ned</button>' +
-                    '<button class="btn btn-ghost" type="button" data-fjern="' + i + '" aria-label="Fjern linje ' + (i + 1) + '">Fjern</button>' +
-                '</div>' +
-                '<div class="stabling">' +
-                    '<label class="check"><input type="checkbox" data-f="stabelbar"' + (li.stabelbar ? ' checked' : '') + '><span>Stabelbar</span></label>' +
-                    '<label class="felt"><span class="felt-lbl">Maks. antal lag</span><input type="text" inputmode="numeric" data-f="maksLag" value="' + esc(fmtInput(li.maksLag)) + '"' + (li.stabelbar ? '' : ' disabled') + '></label>' +
-                '</div>' +
-            '</div>';
-        }).join('');
-    }
-
-    linjerEl.addEventListener('input', e => {
-        const el = e.target;
-        const f = el.dataset.f;
-        if (!f || el.type === 'checkbox' || el.tagName === 'SELECT') return;
-        const li = state.linjer[+el.closest('.linje').dataset.idx];
-        li[f] = el.value;
-        renderResultat();
-    });
-    linjerEl.addEventListener('change', e => {
-        const el = e.target;
-        const f = el.dataset.f;
-        if (!f) return;
-        const li = state.linjer[+el.closest('.linje').dataset.idx];
-        if (el.type === 'checkbox') { li[f] = el.checked; renderLinjer(); }
-        else if (el.tagName === 'SELECT') {
-            li.type = el.value;
-            const t = TYPER[li.type];
-            if (t.l != null) { li.l = t.l; li.b = t.b; }
-            renderLinjer();
-        }
-        renderResultat();
-    });
-    linjerEl.addEventListener('click', e => {
-        const flyt = e.target.closest('[data-flyt]');
-        if (flyt) {
-            const fra = +flyt.closest('.linje').dataset.idx;
-            flytLinje(fra, fra + (+flyt.dataset.flyt));
-            const igen = linjerEl.querySelector('.linje[data-idx="' + (fra + (+flyt.dataset.flyt)) + '"] [data-flyt="' + flyt.dataset.flyt + '"]');
-            if (igen && !igen.disabled) igen.focus();
-            return;
-        }
-        const btn = e.target.closest('[data-fjern]');
-        if (!btn) return;
-        state.linjer.splice(+btn.dataset.fjern, 1);
-        if (state.linjer.length === 0) state.linjer.push(nyLinje());
-        renderLinjer();
-        renderResultat();
-    });
-
-    function flytLinje(fra, til) {
-        if (til < 0 || til >= state.linjer.length || fra === til) return;
-        const [li] = state.linjer.splice(fra, 1);
-        state.linjer.splice(til, 0, li);
-        renderLinjer();
-        renderResultat();
-    }
-
-    // Træk og slip af hele linjer via håndtaget
-    let traekFra = null;
-    linjerEl.addEventListener('dragstart', e => {
-        if (!e.target.classList || !e.target.classList.contains('handle')) { e.preventDefault(); return; }
-        const row = e.target.closest('.linje');
-        traekFra = +row.dataset.idx;
-        row.classList.add('traekkes');
-        e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/plain', String(traekFra));
-        e.dataTransfer.setDragImage(row, 20, 20);
-    });
-    linjerEl.addEventListener('dragover', e => {
-        if (traekFra === null) return;
-        const row = e.target.closest('.linje');
-        if (!row) return;
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
-        const r = row.getBoundingClientRect();
-        const under = e.clientY > r.top + r.height / 2;
-        linjerEl.querySelectorAll('.slip-over, .slip-under').forEach(el => el.classList.remove('slip-over', 'slip-under'));
-        if (+row.dataset.idx !== traekFra) row.classList.add(under ? 'slip-under' : 'slip-over');
-    });
-    linjerEl.addEventListener('dragleave', e => {
-        const row = e.target.closest && e.target.closest('.linje');
-        if (row && !row.contains(e.relatedTarget)) row.classList.remove('slip-over', 'slip-under');
-    });
-    linjerEl.addEventListener('drop', e => {
-        if (traekFra === null) return;
-        const row = e.target.closest('.linje');
-        if (!row) return;
-        e.preventDefault();
-        const r = row.getBoundingClientRect();
-        const under = e.clientY > r.top + r.height / 2;
-        let til = +row.dataset.idx + (under ? 1 : 0);
-        if (til > traekFra) til -= 1;
-        const fra = traekFra;
-        traekFra = null;
-        flytLinje(fra, til);
-    });
-    linjerEl.addEventListener('dragend', () => {
-        traekFra = null;
-        linjerEl.querySelectorAll('.traekkes, .slip-over, .slip-under').forEach(el => el.classList.remove('traekkes', 'slip-over', 'slip-under'));
-    });
 
     function nyLinje() {
         return { type: 'eur', antal: 1, l: 1.2, b: 0.8, h: 1.0, vaegt: 300, stabelbar: false, maksLag: 2 };
     }
+    function nyKunde(i) {
+        return { navn: 'Kunde ' + bogstav(i), linjer: [nyLinje()], pris: { enhed: ENHEDER[state.mode][0].v, tarif: '', valuta: 'DKK', kurs: '' } };
+    }
 
-    document.getElementById('tilfoej').addEventListener('click', () => {
-        state.linjer.push(nyLinje());
-        renderLinjer();
+    /* ---------- DOM: kunder og godslinjer ---------- */
+
+    const kunderEl = document.getElementById('kunder');
+
+    function linjeHtml(li, i, antal) {
+        const t = TYPER[li.type] || TYPER.kolli;
+        const laast = t.l != null;
+        const opts = Object.keys(TYPER).map(k => '<option value="' + k + '"' + (k === li.type ? ' selected' : '') + '>' + TYPER[k].navn + '</option>').join('');
+        return '<div class="linje" data-idx="' + i + '">' +
+            '<div class="nr num"><span>' + (i + 1) + '</span><span class="handle" draggable="true" title="Træk for at ændre rækkefølgen" aria-hidden="true"></span></div>' +
+            '<label class="felt f-type"><span class="felt-lbl">Type</span><select data-f="type">' + opts + '</select></label>' +
+            '<label class="felt"><span class="felt-lbl">Antal</span><input type="text" inputmode="numeric" data-f="antal" value="' + esc(fmtInput(li.antal)) + '"></label>' +
+            '<label class="felt"><span class="felt-lbl">Længde m</span><input type="text" inputmode="decimal" data-f="l" value="' + esc(fmtInput(laast ? t.l : li.l)) + '"' + (laast ? ' disabled' : '') + '></label>' +
+            '<label class="felt"><span class="felt-lbl">Bredde m</span><input type="text" inputmode="decimal" data-f="b" value="' + esc(fmtInput(laast ? t.b : li.b)) + '"' + (laast ? ' disabled' : '') + '></label>' +
+            '<label class="felt"><span class="felt-lbl">Højde m</span><input type="text" inputmode="decimal" data-f="h" value="' + esc(fmtInput(li.h)) + '"></label>' +
+            '<label class="felt f-vaegt"><span class="felt-lbl">Vægt kg/stk</span><input type="text" inputmode="decimal" data-f="vaegt" value="' + esc(fmtInput(li.vaegt)) + '"></label>' +
+            '<div class="fjern">' +
+                '<button class="btn btn-ghost" type="button" data-flyt="-1" aria-label="Flyt linje ' + (i + 1) + ' op"' + (i === 0 ? ' disabled' : '') + '>Op</button>' +
+                '<button class="btn btn-ghost" type="button" data-flyt="1" aria-label="Flyt linje ' + (i + 1) + ' ned"' + (i === antal - 1 ? ' disabled' : '') + '>Ned</button>' +
+                '<button class="btn btn-ghost" type="button" data-fjern="' + i + '" aria-label="Fjern linje ' + (i + 1) + '">Fjern</button>' +
+            '</div>' +
+            '<div class="stabling">' +
+                '<label class="check"><input type="checkbox" data-f="stabelbar"' + (li.stabelbar ? ' checked' : '') + '><span>Stabelbar</span></label>' +
+                '<label class="felt"><span class="felt-lbl">Maks. antal lag</span><input type="text" inputmode="numeric" data-f="maksLag" value="' + esc(fmtInput(li.maksLag)) + '"' + (li.stabelbar ? '' : ' disabled') + '></label>' +
+            '</div>' +
+        '</div>';
+    }
+
+    function renderKunder() {
+        const n = state.kunder.length;
+        kunderEl.innerHTML = state.kunder.map((k, ki) =>
+            '<div class="kunde" data-kunde="' + ki + '">' +
+                '<div class="kunde-head">' +
+                    '<span class="kunde-bogstav">' + farvePrik(ki) + bogstav(ki) + '</span>' +
+                    '<label class="felt kunde-navn"><span class="felt-lbl">Kunde</span><input type="text" data-kf="navn" value="' + esc(k.navn) + '"></label>' +
+                    '<div class="fjern">' +
+                        '<button class="btn btn-ghost" type="button" data-kflyt="-1"' + (ki === 0 ? ' disabled' : '') + '>Op</button>' +
+                        '<button class="btn btn-ghost" type="button" data-kflyt="1"' + (ki === n - 1 ? ' disabled' : '') + '>Ned</button>' +
+                        '<button class="btn btn-ghost" type="button" data-kfjern="' + ki + '"' + (n === 1 ? ' disabled' : '') + '>Fjern kunde</button>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="linjer">' + k.linjer.map((li, i) => linjeHtml(li, i, k.linjer.length)).join('') + '</div>' +
+                '<div class="btn-row"><button class="btn" type="button" data-tilfoej="' + ki + '">Tilføj linje</button></div>' +
+            '</div>'
+        ).join('');
+    }
+
+    function kundeAf(el) { return state.kunder[+el.closest('.kunde').dataset.kunde]; }
+    function linjeAf(el) { return kundeAf(el).linjer[+el.closest('.linje').dataset.idx]; }
+
+    kunderEl.addEventListener('input', e => {
+        const el = e.target;
+        if (el.dataset.kf === 'navn') { kundeAf(el).navn = el.value; renderResultat(); renderPrisFelter(false); return; }
+        const f = el.dataset.f;
+        if (!f || el.type === 'checkbox' || el.tagName === 'SELECT') return;
+        linjeAf(el)[f] = el.value;
         renderResultat();
-        const sidste = linjerEl.querySelector('.linje:last-child input[data-f="antal"]');
-        if (sidste) sidste.focus();
     });
+    kunderEl.addEventListener('change', e => {
+        const el = e.target;
+        const f = el.dataset.f;
+        if (!f) return;
+        const li = linjeAf(el);
+        if (el.type === 'checkbox') { li[f] = el.checked; renderKunder(); }
+        else if (el.tagName === 'SELECT') {
+            li.type = el.value;
+            const t = TYPER[li.type];
+            if (t.l != null) { li.l = t.l; li.b = t.b; }
+            renderKunder();
+        }
+        renderResultat();
+    });
+    kunderEl.addEventListener('click', e => {
+        const t = e.target;
+        const kflyt = t.closest('[data-kflyt]');
+        if (kflyt) {
+            const fra = +kflyt.closest('.kunde').dataset.kunde, til = fra + (+kflyt.dataset.kflyt);
+            if (til < 0 || til >= state.kunder.length) return;
+            const [k] = state.kunder.splice(fra, 1);
+            state.kunder.splice(til, 0, k);
+            strukturAendret();
+            return;
+        }
+        const kfjern = t.closest('[data-kfjern]');
+        if (kfjern) {
+            if (state.kunder.length > 1) state.kunder.splice(+kfjern.dataset.kfjern, 1);
+            strukturAendret();
+            return;
+        }
+        const tilfoej = t.closest('[data-tilfoej]');
+        if (tilfoej) {
+            const k = state.kunder[+tilfoej.dataset.tilfoej];
+            k.linjer.push(nyLinje());
+            renderKunder();
+            renderResultat();
+            const sidste = kunderEl.querySelector('.kunde[data-kunde="' + tilfoej.dataset.tilfoej + '"] .linje:last-child input[data-f="antal"]');
+            if (sidste) sidste.focus();
+            return;
+        }
+        const flyt = t.closest('[data-flyt]');
+        if (flyt) {
+            const ki = +flyt.closest('.kunde').dataset.kunde;
+            const fra = +flyt.closest('.linje').dataset.idx;
+            const til = fra + (+flyt.dataset.flyt);
+            flytLinje(ki, fra, til);
+            const igen = kunderEl.querySelector('.kunde[data-kunde="' + ki + '"] .linje[data-idx="' + til + '"] [data-flyt="' + flyt.dataset.flyt + '"]');
+            if (igen && !igen.disabled) igen.focus();
+            return;
+        }
+        const btn = t.closest('[data-fjern]');
+        if (!btn) return;
+        const k = kundeAf(btn);
+        k.linjer.splice(+btn.dataset.fjern, 1);
+        if (k.linjer.length === 0) k.linjer.push(nyLinje());
+        renderKunder();
+        renderResultat();
+    });
+
+    function flytLinje(ki, fra, til) {
+        const linjer = state.kunder[ki].linjer;
+        if (til < 0 || til >= linjer.length || fra === til) return;
+        const [li] = linjer.splice(fra, 1);
+        linjer.splice(til, 0, li);
+        renderKunder();
+        renderResultat();
+    }
+
+    // Træk og slip af linjer via håndtaget, inden for samme kunde
+    let traek = null;
+    kunderEl.addEventListener('dragstart', e => {
+        if (!e.target.classList || !e.target.classList.contains('handle')) { e.preventDefault(); return; }
+        const row = e.target.closest('.linje');
+        traek = { kunde: +row.closest('.kunde').dataset.kunde, idx: +row.dataset.idx };
+        row.classList.add('traekkes');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', String(traek.idx));
+        e.dataTransfer.setDragImage(row, 20, 20);
+    });
+    kunderEl.addEventListener('dragover', e => {
+        if (traek === null) return;
+        const row = e.target.closest('.linje');
+        if (!row || +row.closest('.kunde').dataset.kunde !== traek.kunde) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        const r = row.getBoundingClientRect();
+        const under = e.clientY > r.top + r.height / 2;
+        kunderEl.querySelectorAll('.slip-over, .slip-under').forEach(el => el.classList.remove('slip-over', 'slip-under'));
+        if (+row.dataset.idx !== traek.idx) row.classList.add(under ? 'slip-under' : 'slip-over');
+    });
+    kunderEl.addEventListener('dragleave', e => {
+        const row = e.target.closest && e.target.closest('.linje');
+        if (row && !row.contains(e.relatedTarget)) row.classList.remove('slip-over', 'slip-under');
+    });
+    kunderEl.addEventListener('drop', e => {
+        if (traek === null) return;
+        const row = e.target.closest('.linje');
+        if (!row || +row.closest('.kunde').dataset.kunde !== traek.kunde) return;
+        e.preventDefault();
+        const r = row.getBoundingClientRect();
+        const under = e.clientY > r.top + r.height / 2;
+        let til = +row.dataset.idx + (under ? 1 : 0);
+        if (til > traek.idx) til -= 1;
+        const t = traek;
+        traek = null;
+        flytLinje(t.kunde, t.idx, til);
+    });
+    kunderEl.addEventListener('dragend', () => {
+        traek = null;
+        kunderEl.querySelectorAll('.traekkes, .slip-over, .slip-under').forEach(el => el.classList.remove('traekkes', 'slip-over', 'slip-under'));
+    });
+
+    document.getElementById('tilfoejKunde').addEventListener('click', () => {
+        state.kunder.push(nyKunde(state.kunder.length));
+        strukturAendret();
+        const navn = kunderEl.querySelector('.kunde:last-child input[data-kf="navn"]');
+        if (navn) { navn.focus(); navn.select(); }
+    });
+
+    function strukturAendret() {
+        renderKunder();
+        renderPrisFelter(true);
+        renderResultat();
+    }
 
     /* ---------- DOM: faner ---------- */
 
@@ -830,7 +907,8 @@
             state.mode = tab.dataset.mode;
             document.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-selected', t === tab ? 'true' : 'false'));
             document.body.dataset.mode = state.mode;
-            fyldEnheder();
+            state.kunder.forEach(k => { k.pris.enhed = ENHEDER[state.mode][0].v; });
+            renderPrisFelter(true);
             renderResultat();
         });
     });
@@ -848,6 +926,10 @@
     });
     document.getElementById('fuldHoejde').addEventListener('change', e => {
         state.s.fuldHoejde = e.target.checked;
+        renderResultat();
+    });
+    document.getElementById('samlet').addEventListener('change', e => {
+        state.s.samlet = e.target.checked;
         renderResultat();
     });
 
@@ -870,42 +952,75 @@
 
     /* ---------- DOM: pris ---------- */
 
-    const prisEnhed = document.getElementById('prisEnhed');
-    const prisTarif = document.getElementById('prisTarif');
-    const prisValuta = document.getElementById('prisValuta');
-    const prisKurs = document.getElementById('prisKurs');
-    const kursFelt = document.getElementById('kursFelt');
-    const kursLbl = document.getElementById('kursLbl');
+    const prisKunderEl = document.getElementById('prisKunder');
+    const prisTotalEl = document.getElementById('prisTotal');
 
-    function fyldEnheder() {
-        prisEnhed.innerHTML = ENHEDER[state.mode].map(e => '<option value="' + e.v + '">' + e.t + '</option>').join('');
-        state.pris.enhed = ENHEDER[state.mode][0].v;
+    // Felterne tegnes kun når strukturen ændres, så indtastning ikke mister fokus.
+    function renderPrisFelter(helt) {
+        if (!helt) {
+            prisKunderEl.querySelectorAll('.pris-kunde').forEach((el, ki) => {
+                const k = state.kunder[ki];
+                if (k) el.querySelector('.pris-navn').textContent = k.navn;
+            });
+            return;
+        }
+        prisKunderEl.innerHTML = state.kunder.map((k, ki) => {
+            const opts = ENHEDER[state.mode].map(e => '<option value="' + e.v + '"' + (e.v === k.pris.enhed ? ' selected' : '') + '>' + e.t + '</option>').join('');
+            return '<div class="pris-kunde" data-kunde="' + ki + '">' +
+                '<h3>' + farvePrik(ki) + bogstav(ki) + ' · <span class="pris-navn">' + esc(k.navn) + '</span></h3>' +
+                '<div class="pris-grid">' +
+                    '<label class="felt"><span class="felt-lbl">Afregningsenhed</span><select data-pf="enhed">' + opts + '</select></label>' +
+                    '<label class="felt"><span class="felt-lbl">Tarif pr. enhed</span><input type="text" inputmode="decimal" data-pf="tarif" placeholder="fx 1600" value="' + esc(k.pris.tarif) + '"></label>' +
+                    '<label class="felt"><span class="felt-lbl">Valuta</span><select data-pf="valuta">' +
+                        ['DKK', 'EUR', 'USD'].map(v => '<option value="' + v + '"' + (v === k.pris.valuta ? ' selected' : '') + '>' + v + '</option>').join('') +
+                    '</select></label>' +
+                    '<label class="felt kursFelt"' + (k.pris.valuta === 'DKK' ? ' hidden' : '') + '><span class="felt-lbl kursLbl">Kurs (DKK pr. 1 ' + k.pris.valuta + ')</span><input type="text" inputmode="decimal" data-pf="kurs" placeholder="udfyld" value="' + esc(k.pris.kurs) + '"></label>' +
+                '</div>' +
+                '<div class="pris-res"></div>' +
+            '</div>';
+        }).join('');
     }
-    prisEnhed.addEventListener('change', () => { state.pris.enhed = prisEnhed.value; renderResultat(); });
-    prisTarif.addEventListener('input', () => { state.pris.tarif = prisTarif.value; renderResultat(); });
-    prisKurs.addEventListener('input', () => { state.pris.kurs = prisKurs.value; renderResultat(); });
-    prisValuta.addEventListener('change', () => {
-        state.pris.valuta = prisValuta.value;
-        kursFelt.hidden = state.pris.valuta === 'DKK';
-        kursLbl.textContent = 'Kurs (DKK pr. 1 ' + state.pris.valuta + ')';
+    prisKunderEl.addEventListener('input', e => {
+        const el = e.target, f = el.dataset.pf;
+        if (!f || el.tagName === 'SELECT') return;
+        kundeAfPris(el).pris[f] = el.value;
         renderResultat();
     });
+    prisKunderEl.addEventListener('change', e => {
+        const el = e.target, f = el.dataset.pf;
+        if (!f || el.tagName !== 'SELECT') return;
+        const k = kundeAfPris(el);
+        k.pris[f] = el.value;
+        if (f === 'valuta') {
+            const blok = el.closest('.pris-kunde');
+            blok.querySelector('.kursFelt').hidden = el.value === 'DKK';
+            blok.querySelector('.kursLbl').textContent = 'Kurs (DKK pr. 1 ' + el.value + ')';
+        }
+        renderResultat();
+    });
+    function kundeAfPris(el) { return state.kunder[+el.closest('.pris-kunde').dataset.kunde]; }
 
     /* ---------- DOM: resultat ---------- */
 
-    const advarslerEl = document.getElementById('advarsler');
-    const linjetabelEl = document.getElementById('linjetabel');
-    const resultaterEl = document.getElementById('resultater');
+    const kundeResultaterEl = document.getElementById('kundeResultater');
+    const totalResultatEl = document.getElementById('totalResultat');
     const resultatCap = document.getElementById('resultat-cap');
     const metodeWrap = document.getElementById('metode-wrap');
-    const prisResultatEl = document.getElementById('prisResultat');
     const lastCard = document.getElementById('last-card');
     const lastOversigtEl = document.getElementById('lastOversigt');
     const trailereEl = document.getElementById('trailere');
+    const legendEl = document.getElementById('legend');
+
+    function beregnAlle() {
+        return state.kunder.map((k, ki) => {
+            const res = beregn(k.linjer, state.s, state.mode);
+            return { kunde: k, ki, res, pris: beregnPris(res, k.pris) };
+        });
+    }
 
     function renderResultat() {
         const mode = state.mode;
-        const res = beregn(state.linjer, state.s, mode);
+        const alle = beregnAlle();
 
         metodeWrap.hidden = mode !== 'vej';
         lastCard.hidden = mode === 'luft';
@@ -914,22 +1029,42 @@
             : mode === 'luft' ? 'Luftfragt: den højeste af faktisk vægt og volumenvægt'
             : 'Søfragt LCL: Weight or Measurement, den højeste af CBM og vægt i ton';
 
-        // Advarsler
-        advarslerEl.innerHTML = res.advarsler.length
-            ? '<div class="callout"><ul>' + res.advarsler.map(a => '<li>' + esc(a) + '</li>').join('') + '</ul></div>'
-            : '';
+        kundeResultaterEl.innerHTML = alle.map(a => {
+            const res = a.res;
+            return '<div class="kunde-res">' +
+                '<h3>' + farvePrik(a.ki) + bogstav(a.ki) + ' · ' + esc(a.kunde.navn) + '</h3>' +
+                (res.advarsler.length ? '<div class="callout"><ul>' + res.advarsler.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul></div>' : '') +
+                '<div class="table-wrap">' + (mode === 'vej' ? tabelVej(res) : tabelVolumen(res)) + '</div>' +
+                '<div class="result-grid">' + res.kort.map(k => kortHtml(k, res, a.pris)).join('') + '</div>' +
+            '</div>';
+        }).join('');
 
-        // Linjetabel
-        linjetabelEl.innerHTML = mode === 'vej' ? tabelVej(res) : tabelVolumen(res);
+        renderTotal(alle);
+        renderPris(alle);
+        if (mode !== 'luft') renderLast(alle);
+    }
 
-        // Resultatkort
-        resultaterEl.innerHTML = res.kort.map(k => kortHtml(k, res)).join('');
-
-        // Pris
-        renderPris(res);
-
-        // Lastbillede
-        if (mode !== 'luft') renderLast(res);
+    function renderTotal(alle) {
+        if (alle.length < 2) { totalResultatEl.innerHTML = ''; return; }
+        const mode = state.mode;
+        const sum = f => alle.reduce((a, x) => a + f(x), 0);
+        const felter = [
+            ['Kunder', alle.length],
+            ['Kolli', sum(x => x.res.tot.antal)],
+            ['Vægt', fmt(sum(x => x.res.tot.vaegt), 0) + ' kg']
+        ];
+        if (mode === 'vej') {
+            felter.push(['LDM afregnet', fmt(sum(x => x.res.kort[0].fragtpligtig), 2) + ' LDM']);
+            felter.push(['CBM afregnet', fmt(sum(x => x.res.kort[1].fragtpligtig), 2) + ' CBM']);
+            felter.push(['PLL afregnet', fmt(sum(x => x.res.kort[2].fragtpligtig), 2) + ' PLL']);
+        } else if (mode === 'luft') {
+            felter.push(['Fragtpligtig i alt', fmt(sum(x => x.res.kort[0].fragtpligtig), 1) + ' kg']);
+        } else {
+            felter.push(['W/M i alt', fmt(sum(x => x.res.kort[0].fragtpligtig), 2) + ' W/M']);
+        }
+        totalResultatEl.innerHTML = '<h3 style="margin-bottom:8px;">Hele læsset</h3><div class="total">' +
+            felter.map(f => '<div><div class="t-lbl">' + f[0] + '</div><div class="t-val">' + f[1] + '</div></div>').join('') +
+        '</div><p class="cap" style="margin-top:8px;">Summen af kundernes afregnede enheder. Hver kunde faktureres for sit eget gods; lastplanen viser hvad læsset fysisk fylder.</p>';
     }
 
     function tabelVej(res) {
@@ -956,8 +1091,7 @@
             '<thead><tr><th>Linje</th><th>Antal</th><th>Lag</th><th>Gulvpladser</th><th>LDM areal</th><th>LDM pallepladser</th><th>LDM anvendt</th><th>CBM</th><th>Vægt kg</th></tr></thead>' +
             '<tbody>' + rows + '</tbody>' +
             '<tfoot><tr><td>Sending</td><td>' + t.antal + '</td><td></td><td>' + t.gulvpladser + '</td><td></td><td></td><td>' + fmt(t.ldm, 2) + '</td><td>' + fmt(t.cbmAfregnet, 2) + '</td><td>' + fmt(t.vaegt, 0) + '</td></tr></tfoot>' +
-        '</table>' + fodnote +
-        '';
+        '</table>' + fodnote;
     }
 
     function tabelVolumen(res) {
@@ -979,7 +1113,7 @@
         '</table>';
     }
 
-    function kortHtml(k, res) {
+    function kortHtml(k, res, p) {
         const dec = k.enhed === 'kg' ? 1 : 2;
         const volLbl = k.volumenLabel || ('1. Volumen');
         const vaegtLbl = k.vaegtLabel || ('2. Vægt ÷ ' + fmt(k.faktor, k.faktor % 1 ? 2 : 0));
@@ -988,6 +1122,11 @@
         let note = '';
         if (k.afrundet) note = '<div class="cap">Rundet op til nærmeste 0,5 kg.</div>';
         if (k.minimum) note = '<div class="cap">Minimum 1 W/M anvendt.</div>';
+        let prisLine = '';
+        if (p && p.kort.enhed === k.enhed) {
+            prisLine = '<div class="pris-line">4. Pris: <strong>' + fmt(p.beloeb, 2) + ' ' + p.valuta + '</strong>' +
+                (p.beloebDKK != null && p.valuta !== 'DKK' ? ' <span class="cap">(' + fmt(p.beloebDKK, 2) + ' DKK)</span>' : '') + '</div>';
+        }
         return '<div class="result">' +
             '<div class="r-title">' + esc(k.titel) + '</div>' +
             '<div class="r-rows">' +
@@ -996,50 +1135,48 @@
             '</div>' +
             '<div class="r-lbl">3. Fragtpligtig (højeste)</div>' +
             '<div class="big">' + fmt(k.fragtpligtig, dec) + '<small>' + k.kort + '</small></div>' +
-            note +
-            '<div class="pris-line" data-pris="' + k.enhed + '"></div>' +
+            note + prisLine +
         '</div>';
     }
 
-    function renderPris(res) {
-        const p = beregnPris(res, state.pris);
-        document.querySelectorAll('.pris-line').forEach(el => { el.innerHTML = ''; el.hidden = true; });
-        if (!p) {
-            prisResultatEl.innerHTML = '<p class="cap">Indtast en tarif for at se prisen.</p>';
-            return;
-        }
-        const dec = p.kort.enhed === 'kg' ? 1 : 2;
-        let html = '<div class="callout neutral">' +
-            '<div><strong>4. Pris:</strong> ' + fmt(p.kort.fragtpligtig, dec) + ' ' + p.kort.kort + ' × ' + fmt(p.tarif, 2) + ' ' + p.valuta + ' = <strong>' + fmt(p.beloeb, 2) + ' ' + p.valuta + '</strong></div>';
-        if (p.valuta !== 'DKK') {
-            html += p.kursMangler
-                ? '<div class="cap">Udfyld kursen for at se prisen i DKK.</div>'
-                : '<div>I danske kroner: ' + fmt(p.beloeb, 2) + ' × ' + fmt(tal(state.pris.kurs), 4) + ' = <strong>' + fmt(p.beloebDKK, 2) + ' DKK</strong></div>';
-        }
-        html += '</div>';
-        prisResultatEl.innerHTML = html;
-        if (p.kursMangler) {
-            advarslerEl.innerHTML += '<div class="callout" style="margin-top:8px;"><ul><li>Kurs mangler: prisen i ' + esc(p.valuta) + ' kan ikke omregnes til DKK.</li></ul></div>';
-        }
-        const line = document.querySelector('.pris-line[data-pris="' + p.kort.enhed + '"]');
-        if (line) {
-            line.hidden = false;
-            line.innerHTML = '4. Pris: <strong>' + fmt(p.beloeb, 2) + ' ' + p.valuta + '</strong>' +
-                (p.beloebDKK != null && p.valuta !== 'DKK' ? ' <span class="cap">(' + fmt(p.beloebDKK, 2) + ' DKK)</span>' : '');
-        }
+    function renderPris(alle) {
+        let sumDKK = 0, mangler = [], nogen = false;
+        alle.forEach(a => {
+            const el = prisKunderEl.querySelector('.pris-kunde[data-kunde="' + a.ki + '"] .pris-res');
+            if (!el) return;
+            const p = a.pris;
+            if (!p) { el.innerHTML = '<p class="cap">Indtast en tarif for at se prisen.</p>'; return; }
+            nogen = true;
+            const dec = p.kort.enhed === 'kg' ? 1 : 2;
+            let html = '<div class="callout neutral">' +
+                '<div><strong>4. Pris:</strong> ' + fmt(p.kort.fragtpligtig, dec) + ' ' + p.kort.kort + ' × ' + fmt(p.tarif, 2) + ' ' + p.valuta + ' = <strong>' + fmt(p.beloeb, 2) + ' ' + p.valuta + '</strong></div>';
+            if (p.valuta !== 'DKK') {
+                html += p.kursMangler
+                    ? '<div class="cap">Udfyld kursen for at se prisen i DKK.</div>'
+                    : '<div>I danske kroner: ' + fmt(p.beloeb, 2) + ' × ' + fmt(tal(a.kunde.pris.kurs), 4) + ' = <strong>' + fmt(p.beloebDKK, 2) + ' DKK</strong></div>';
+            }
+            html += '</div>';
+            el.innerHTML = html;
+            if (p.beloebDKK != null) sumDKK += p.beloebDKK; else mangler.push(a.kunde.navn);
+        });
+        if (alle.length < 2 || !nogen) { prisTotalEl.innerHTML = ''; return; }
+        prisTotalEl.innerHTML = '<div class="total"><div><div class="t-lbl">Samlet for læsset</div><div class="t-val">' + fmt(sumDKK, 2) + ' DKK</div></div>' +
+            (mangler.length ? '<div><div class="t-lbl">Ikke medregnet</div><div class="t-val" style="font-size:14px;font-weight:400;">' + esc(mangler.join(', ')) + ' (kurs eller tarif mangler)</div></div>' : '') +
+        '</div>';
     }
 
     /* ---------- Lastplan ---------- */
 
     // Hver gulvplads bliver én enhed: en stak af et eller flere ens kolli.
-    function lavEnheder(res) {
+    function lavEnheder(alle) {
         const enheder = [];
-        res.linjer.forEach((r, i) => {
-            const reserver = r.type === 'kolli' && r.metodeBrugt === 'palle';
-            for (let k = 0; k < r.gulvpladser; k++) {
-                const stk = Math.max(1, Math.min(r.lag, r.antal - k * r.lag));
-                enheder.push({ linje: i, L: r.L, B: r.B, vaegt: r.vaegtStk * stk, lag: stk, reserver });
-            }
+        alle.forEach(a => {
+            a.res.linjer.forEach((r, i) => {
+                for (let k = 0; k < r.gulvpladser; k++) {
+                    const stk = Math.max(1, Math.min(r.lag, r.antal - k * r.lag));
+                    enheder.push({ kunde: a.ki, linje: i, L: r.L, B: r.B, vaegt: r.vaegtStk * stk, lag: stk });
+                }
+            });
         });
         return enheder;
     }
@@ -1050,7 +1187,7 @@
     // rækkefølge, ingen rotation, enhederne fyldes i rækker på tværs (next fit).
     function pak(enheder, s, auto, boks) {
         if (!auto) return pakMed(enheder, s, boks, proevManuel, false, false);
-        const sorteret = enheder.slice().sort((a, b) => (b.L * b.B - a.L * a.B) || (b.L - a.L));
+        const sorteret = enheder.slice().sort((a, b) => (s.samlet ? a.kunde - b.kunde : 0) || (b.L * b.B - a.L * a.B) || (b.L - a.L));
         // Fire varianter: guillotine og skyline, hver med to orienteringspræferencer.
         // Den bedste vælges: færrest enheder udenfor, færrest lastrum, mindst brugt længde.
         let bedst = null;
@@ -1103,7 +1240,7 @@
         });
         if (!bedst) return false;
         const o = bedst.o;
-        t.enheder.push({ x: bedst.x, y: bedst.y, l: o.l, b: o.b, linje: u.linje, lag: u.lag, reserver: u.reserver, vaegt: u.vaegt, kilde: u });
+        t.enheder.push({ x: bedst.x, y: bedst.y, l: o.l, b: o.b, kunde: u.kunde, linje: u.linje, lag: u.lag, vaegt: u.vaegt, kilde: u });
         t.vaegt += u.vaegt;
         const y1 = bedst.y, y2 = bedst.y + o.b;
         const ny = [];
@@ -1134,7 +1271,7 @@
         }));
         if (!bedst) return false;
         const f = bedst.f, o = bedst.o;
-        t.enheder.push({ x: f.x, y: f.y, l: o.l, b: o.b, linje: u.linje, lag: u.lag, reserver: u.reserver, vaegt: u.vaegt, kilde: u });
+        t.enheder.push({ x: f.x, y: f.y, l: o.l, b: o.b, kunde: u.kunde, linje: u.linje, lag: u.lag, vaegt: u.vaegt, kilde: u });
         t.vaegt += u.vaegt;
         t.fri.splice(bedst.fi, 1);
         const restW = f.w - o.l, restH = f.h - o.b;
@@ -1166,7 +1303,7 @@
     }
 
     function placer(t, h, u, o) {
-        t.enheder.push({ x: h.x, y: h.brugtB, l: o.l, b: o.b, linje: u.linje, lag: u.lag, reserver: u.reserver, vaegt: u.vaegt, kilde: u });
+        t.enheder.push({ x: h.x, y: h.brugtB, l: o.l, b: o.b, kunde: u.kunde, linje: u.linje, lag: u.lag, vaegt: u.vaegt, kilde: u });
         h.brugtB += o.b;
         t.vaegt += u.vaegt;
     }
@@ -1186,8 +1323,9 @@
         let items = '';
         t.enheder.forEach(e => {
             const x = pad + e.x * sc, y = pad + e.y * sc;
-            items += '<rect x="' + x + '" y="' + y + '" width="' + (e.l * sc) + '" height="' + (e.b * sc) + '" fill="var(--fill-2)" stroke="var(--ink-2)"/>';
-            const lbl = (e.linje + 1) + (e.lag > 1 ? ' ×' + e.lag : '');
+            const fv = farveFor(e.kunde);
+            items += '<rect x="' + x + '" y="' + y + '" width="' + (e.l * sc) + '" height="' + (e.b * sc) + '" fill="' + fv.fill + '" stroke="' + fv.stroke + '"/>';
+            const lbl = bogstav(e.kunde) + (e.linje + 1) + (e.lag > 1 ? ' ×' + e.lag : '');
             if (e.b * sc >= 14 || e.l * sc >= 40) {
                 items += '<text x="' + (x + e.l * sc / 2) + '" y="' + (y + e.b * sc / 2) + '" font-size="11" font-family="Inter, system-ui, sans-serif" fill="var(--ink)" text-anchor="middle" dominant-baseline="middle">' + lbl + '</text>';
             }
@@ -1206,8 +1344,8 @@
         return '<div class="bar' + (vaerdi > maks + 1e-9 ? ' over' : '') + '"><div class="track"><div class="fill" style="width:' + pct + '%"></div></div><span class="bar-lbl">' + lbl + '</span></div>';
     }
 
-    function planlaeg(res, s, auto, mode) {
-        const enheder = lavEnheder(res);
+    function planlaeg(alle, s, auto, mode) {
+        const enheder = lavEnheder(alle);
         if (mode !== 'soe' || s.container !== 'mix') return pak(enheder, s, auto, boksFor(s, mode));
         // Blandet: alt i 40'. Kan den sidste containers gods være i en 20', bruges den i stedet.
         const plan = pak(enheder, s, auto, boksFor(s, mode, 'c40'));
@@ -1222,12 +1360,13 @@
         return plan;
     }
 
-    function renderLast(res) {
+    function renderLast(alle) {
         const s = state.s;
         const mode = state.mode;
         const soe = mode === 'soe';
         const auto = s.pakning === 'auto';
-        const plan = planlaeg(res, s, auto, mode);
+        const plan = planlaeg(alle, s, auto, mode);
+        legendEl.innerHTML = alle.map(a => '<span>' + farvePrik(a.ki) + bogstav(a.ki) + ' · ' + esc(a.kunde.navn) + ' (' + a.res.tot.antal + ' kolli)</span>').join('');
         const n = plan.trailere.length;
 
         document.getElementById('lastTitel').textContent = soe ? 'Containerplan' : 'Lastplan';
@@ -1240,8 +1379,8 @@
 
         let oversigt = '';
         if (n === 0) oversigt = '<p class="cap">Intet gods at laste.</p>';
-        else if (n === 1) oversigt = '<p>Sendingen kan lastes i <strong>én ' + plan.trailere[0].boks.navn.toLowerCase() + '</strong>.</p>';
-        else oversigt = '<p>Sendingen kræver <strong>' + liste + '</strong>. Nedenfor ses hver enhed for sig.</p>';
+        else if (n === 1) oversigt = '<p>Læsset kan være i <strong>én ' + plan.trailere[0].boks.navn.toLowerCase() + '</strong>.</p>';
+        else oversigt = '<p>Læsset kræver <strong>' + liste + '</strong>. Nedenfor ses hver enhed for sig.</p>';
         if (soe) oversigt += '<p class="cap">Fragtpligtig vægt i LCL er stadig W/M. Containerplanen viser, om sendingen i stedet bør sendes som FCL, og hvor godt containeren udnyttes.</p>';
         if (plan.ikkePlaceret.length) {
             const b = plan.trailere.length ? plan.trailere[0].boks : boksFor(s, mode);
@@ -1266,15 +1405,15 @@
 
     /* ---------- Start ---------- */
 
-    state.linjer = [nyLinje()];
+    state.kunder = [nyKunde(0)];
 
-    fyldEnheder();
     renderIndstillinger();
-    renderLinjer();
+    renderKunder();
+    renderPrisFelter(true);
     renderResultat();
 
     // Til test fra konsol eller script
-    window.FV = { beregn, beregnPris, pak, lavEnheder, boksFor, TYPER, STANDARD, tal };
+    window.FV = { beregn, beregnPris, pak, lavEnheder, boksFor, TYPER, STANDARD, tal, state, renderResultat };
 })();
 </script>
 </body>
